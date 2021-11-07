@@ -15,7 +15,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 @Slf4j
 @PluginDescriptor(
 	name = "Death-Tracker",
-	description = "Tracks [cost of] deaths during session",
+	description = "Tracks [cost of] items lost to deaths during session",
 	enabledByDefault = false
 )
 public class DeathTrackerPlugin extends Plugin
