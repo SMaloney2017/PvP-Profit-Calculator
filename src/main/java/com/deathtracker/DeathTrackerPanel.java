@@ -25,7 +25,9 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.deathtracker.ui;
+package com.deathtracker;
+
+import static com.google.common.collect.Iterables.concat;
 
 import static com.google.common.collect.Iterables.concat;
 import com.google.common.collect.Lists;
@@ -66,16 +68,14 @@ import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.SwingUtil;
-import net.runelite.http.api.loottracker.LootRecordType;
-import net.runelite.http.api.loottracker.LootTrackerClient;
 import com.deathtracker.DeathTrackerPlugin;
 import com.deathtracker.DeathTrackerConfig;
-import com.deathtracker.DeathTrackerGear;
-import com.deathtracker.DeathTrackerMonster;
+import com.deathtracker.DeathTrackerItem;
+import com.deathtracker.DeathTrackerRecord;
+import com.deathtracker.DeathRecordType;
 
 class DeathTrackerPanel extends PluginPanel
 {
-
     private static final String HTML_LABEL_TEMPLATE =
             "<html><body style='color:%s'>%s<span style='color:white'>%s</span></body></html>";
 
@@ -91,11 +91,17 @@ class DeathTrackerPanel extends PluginPanel
     private int overallDeaths;
     private int overallCost;
 
+    private final List<DeathTrackerRecord> aggregateRecords = new ArrayList<>();
+
+    private final List<DeathTrackerRecord> sessionRecords = new ArrayList<>();
     private final List<DeathTrackerBox> boxes = new ArrayList<>();
 
     private final ItemManager itemManager;
     private final DeathTrackerPlugin plugin;
     private final DeathTrackerConfig config;
+
+    private String currentView;
+    private DeathRecordType currentType;
 
     DeathTrackerPanel(final ItemManager itemManager, final DeathTrackerPlugin plugin, final DeathTrackerConfig config)
     {
@@ -114,7 +120,7 @@ class DeathTrackerPanel extends PluginPanel
 
         /* Actions Container */
 
-        /* View Controls */
+        /* Views & Controls */
 
         overallPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(5, 0, 0, 0, ColorScheme.DARK_GRAY_COLOR),
@@ -145,8 +151,13 @@ class DeathTrackerPanel extends PluginPanel
             if (result != JOptionPane.YES_OPTION) {
                 return;
             }
-            this.plugin.clearDeaths();
-            resetAll();
+
+            sessionRecords.removeIf(r -> r.matches(currentView, currentType));
+            aggregateRecords.removeIf(r -> r.matches(currentView, currentType));
+            boxes.removeIf(b -> b.matches(currentView, currentType));
+            updateOverall();
+            logsContainer.removeAll();
+            logsContainer.repaint();
         });
 
         final JPopupMenu popupMenu = new JPopupMenu();
@@ -160,53 +171,81 @@ class DeathTrackerPanel extends PluginPanel
         layoutPanel.add(logsContainer);
     }
 
-    public void addItem(DeathTrackerGear items, DeathTrackerMonster monster)
+    void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
     {
-        for (DeathTrackerBox box : boxes)
+        final String subTitle;
+        if (type == DeathRecordType.OTHER)
         {
-            if (box.getMonster() == monster)
-            {
-                box.update(items);
-                box.rebuild();
-                break;
-            }
+            subTitle = "(Unknown)";
         }
-        updateOverall();
+        else
+        {
+            subTitle = actorLevel > -1 ? "(lvl-" + actorLevel + ")" : "";
+        }
+        final DeathTrackerRecord record = new DeathTrackerRecord(eventName, subTitle, type, items, 1);
+        sessionRecords.add(record);
+
+        /* Hide if null */
+
+        DeathTrackerBox box = buildBox(record);
+        if (box != null)
+        {
+            box.rebuild();
+            updateOverall();
+        }
     }
 
-    public void resetAll()
+
+    void addRecords(Collection<DeathTrackerRecord> records)
     {
-        overallDeaths = 0;
-        overallCost = 0;
-        for (DeathTrackerBox box : boxes)
-        {
-            box.clearAll();
-        }
+        aggregateRecords.addAll(records);
+        rebuild();
+    }
+
+    private void rebuild()
+    {
+        SwingUtil.fastRemoveAll(logsContainer);
+        boxes.clear();
+
+        Lists.reverse(sessionRecords).stream()
+                .collect(Collectors.toCollection(ArrayDeque::new))
+                .descendingIterator()
+                .forEachRemaining(this::buildBox);
+
+        boxes.forEach(DeathTrackerBox::rebuild);
         updateOverall();
+        logsContainer.revalidate();
         logsContainer.repaint();
     }
 
-    public void updateOverall()
+    private void updateOverall()
     {
-        overallDeaths = 0;
-        overallCost = 0;
-        for (DeathTrackerBox box : boxes)
-        {
-            overallDeaths += box.getTotalDeaths();
-            overallCost += box.getTotalPrice();
-        }
+        long overallDeaths = 0;
+        long overallCost = 0;
 
-        overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths));
+        Iterable<DeathTrackerRecord> records = sessionRecords;
+
+        for (DeathTrackerRecord record : records)
+        {
+            int present = record.getItems().length;
+
+            for (DeathTrackerItem item : record.getItems())
+            {
+                overallCost += item.getTotalCost();
+            }
+            if (present > 0)
+            {
+                overallDeaths += record.getDeaths();
+            }
+        }
+        overallDeathsLabel.setText(htmlLabel("Total count: ", overallDeaths));
         overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost));
+        overallCostLabel.setToolTipText("<html>Total Cost: " + QuantityFormatter.formatNumber(overallCost) + "</html>");
+    }
 
-        if (overallDeaths != 0) {
-            remove(errorPanel);
-            overallPanel.setVisible(true);
-        }else
-        {
-            add(errorPanel);
-            overallPanel.setVisible(false);
-
-        }
+    private static String htmlLabel(String key, long value)
+    {
+        final String valueStr = QuantityFormatter.quantityToStackSize(value);
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.LIGHT_GRAY_COLOR), key, valueStr);
     }
 }

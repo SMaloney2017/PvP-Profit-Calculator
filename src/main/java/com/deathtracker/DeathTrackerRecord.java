@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2018, Psikoi <https://github.com/psikoi>
- * Copyright (c) 2018, Tomas Slusny <slusnucky@gmail.com>
- * Copyright (c) 2018, Sean Maloney <https://github.com/SMaloney2017>
+ * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,44 +24,30 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.deathtracker.ui;
+package com.deathtracker;
 
-import com.google.common.base.Strings;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Component;
-import java.awt.Dimension;
-import java.awt.GridLayout;
-import java.awt.image.BufferedImage;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.List;
-import java.util.function.BiConsumer;
-import java.util.function.ToLongFunction;
-import java.util.stream.Collectors;
-import javax.annotation.Nullable;
-import javax.swing.Box;
-import javax.swing.BoxLayout;
-import javax.swing.ImageIcon;
-import javax.swing.JLabel;
-import javax.swing.JMenuItem;
-import javax.swing.JPanel;
-import javax.swing.JPopupMenu;
-import javax.swing.SwingConstants;
-import javax.swing.border.EmptyBorder;
-import lombok.AccessLevel;
-import lombok.Getter;
-import net.runelite.api.ItemID;
-import net.runelite.client.game.ItemManager;
-import net.runelite.client.ui.ColorScheme;
-import net.runelite.client.ui.FontManager;
-import net.runelite.client.util.AsyncBufferedImage;
-import net.runelite.client.util.ImageUtil;
-import net.runelite.client.util.QuantityFormatter;
-import net.runelite.client.util.Text;
-import net.runelite.http.api.loottracker.LootRecordType;
+import lombok.NonNull;
+import lombok.Value;
+import com.deathtracker.DeathRecordType;
 
-public abstract class DeathTrackerBox extends JPanel
+@Value
+class DeathTrackerRecord
 {
+    @NonNull
+    private final String title;
+    private final String subTitle;
+    private final DeathRecordType type;
+    private final DeathTrackerItem[] items;
+    private final int deaths;
 
+
+    boolean matches(final String id, DeathRecordType type)
+    {
+        if (id == null)
+        {
+            return true;
+        }
+
+        return title.equals(id) && this.type == type;
+    }
 }

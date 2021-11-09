@@ -25,15 +25,9 @@
 
 package com.deathtracker;
 
-import lombok.AccessLevel;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.Setter;
-
-@Getter(AccessLevel.PUBLIC)
-@Setter(AccessLevel.PUBLIC)
-@AllArgsConstructor
-public class DeathTrackerGear
+public enum DeathRecordType
 {
-
+    NPC,
+    PLAYER,
+    OTHER
 }

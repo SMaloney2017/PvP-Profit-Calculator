@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
+ * Copyright (c) 2018, Daddy Dozer <https://github.com/Dyldozer>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -25,17 +25,23 @@
 
 package com.deathtracker;
 
-import lombok.AccessLevel;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
 import lombok.Getter;
-import lombok.Setter;
 
-@Getter(AccessLevel.PUBLIC)
-@Setter(AccessLevel.PUBLIC)
 @AllArgsConstructor
-public class DeathTrackerMonster
+@Getter
+@EqualsAndHashCode
+class DeathTrackerItem
 {
-    private int id;
-    private String name;
-    private int level;
+    private final int id;
+    private final String name;
+    private int quantity;
+    private final int gePrice;
+
+    long getTotalGePrice()
+    {
+        return (long) gePrice * quantity;
+    }
+
 }
