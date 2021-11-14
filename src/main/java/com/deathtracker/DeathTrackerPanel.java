@@ -76,13 +76,21 @@ import com.deathtracker.DeathRecordType;
 
 class DeathTrackerPanel extends PluginPanel
 {
+    private static final int MAX_DEATH_BOXES = 500;
+
+    private static final ImageIcon COLLAPSE_ICON;
+    private static final ImageIcon EXPAND_ICON;
+
     private static final String HTML_LABEL_TEMPLATE =
             "<html><body style='color:%s'>%s<span style='color:white'>%s</span></body></html>";
 
+    /* Display errorPanel when there are no deaths */
     private final PluginErrorPanel errorPanel = new PluginErrorPanel();
 
+    /* Handle death boxes */
     public final JPanel logsContainer = new JPanel();
 
+    /* Session data */
     private final JPanel overallPanel = new JPanel();
     private final JLabel overallDeathsLabel = new JLabel();
     private final JLabel overallCostLabel = new JLabel();
@@ -91,8 +99,14 @@ class DeathTrackerPanel extends PluginPanel
     private int overallDeaths;
     private int overallCost;
 
+    /* Details and actions */
+    private final JPanel actionsContainer = new JPanel();
+    private final JButton collapseBtn = new JButton();
+
+    /* Aggregate of all deaths */
     private final List<DeathTrackerRecord> aggregateRecords = new ArrayList<>();
 
+    /* Individual record of each death */
     private final List<DeathTrackerRecord> sessionRecords = new ArrayList<>();
     private final List<DeathTrackerBox> boxes = new ArrayList<>();
 
@@ -102,6 +116,14 @@ class DeathTrackerPanel extends PluginPanel
 
     private String currentView;
     private DeathRecordType currentType;
+
+    static {
+        final BufferedImage collapseImg = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "collapsed.png");
+        final BufferedImage expandedImg = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "expanded.png");
+
+        COLLAPSE_ICON = new ImageIcon(collapseImg);
+        EXPAND_ICON = new ImageIcon(expandedImg);
+    }
 
     DeathTrackerPanel(final ItemManager itemManager, final DeathTrackerPlugin plugin, final DeathTrackerConfig config)
     {
@@ -118,10 +140,25 @@ class DeathTrackerPanel extends PluginPanel
         layoutPanel.setLayout(new BoxLayout(layoutPanel, BoxLayout.Y_AXIS));
         add(layoutPanel, BorderLayout.NORTH);
 
-        /* Actions Container */
+        actionsContainer.setLayout(new BorderLayout());
+        actionsContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        actionsContainer.setPreferredSize(new Dimension(0, 30));
+        actionsContainer.setBorder(new EmptyBorder(5, 5, 5, 10));
+        actionsContainer.setVisible(false);
 
-        /* Views & Controls */
+        final JPanel viewControls = new JPanel(new GridLayout(1, 3, 10, 0));
+        viewControls.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
+        SwingUtil.removeButtonDecorations(collapseBtn);
+        collapseBtn.setIcon(EXPAND_ICON);
+        collapseBtn.setSelectedIcon(COLLAPSE_ICON);
+        SwingUtil.addModalTooltip(collapseBtn, "Collapse All", "Un-Collapse All");
+        collapseBtn.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        collapseBtn.setUI(new BasicButtonUI());
+        collapseBtn.addActionListener(ev -> changeCollapse());
+        viewControls.add(collapseBtn);
+
+        /* Panel that will contain overall data */
         overallPanel.setBorder(BorderFactory.createCompoundBorder(
                 BorderFactory.createMatteBorder(5, 0, 0, 0, ColorScheme.DARK_GRAY_COLOR),
                 BorderFactory.createEmptyBorder(8, 10, 8, 10)
@@ -144,7 +181,7 @@ class DeathTrackerPanel extends PluginPanel
         final JMenuItem reset = new JMenuItem("Reset All");
         reset.addActionListener(e ->
         {
-            final int result = JOptionPane.showOptionDialog(overallPanel, "Reset deaths across all sessions.",
+            final int result = JOptionPane.showOptionDialog(overallPanel, "This will permanently delete the current deaths from the client.",
                     "Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
                     null, new String[]{"Yes", "No"}, "No");
 
@@ -166,15 +203,35 @@ class DeathTrackerPanel extends PluginPanel
         overallPanel.setComponentPopupMenu(popupMenu);
 
         logsContainer.setLayout(new BoxLayout(logsContainer, BoxLayout.Y_AXIS));
-        /* layoutPanel.add(actionsContainer); */
+        layoutPanel.add(actionsContainer);
         layoutPanel.add(overallPanel);
         layoutPanel.add(logsContainer);
+
+        errorPanel.setContent("Death tracker", "You have not died yet.");
+        add(errorPanel);
+    }
+
+    void updateCollapseText()
+    {
+        collapseBtn.setSelected(isAllCollapsed());
+    }
+
+    private boolean isAllCollapsed()
+    {
+        return boxes.stream()
+                .filter(DeathTrackerBox::isCollapsed)
+                .count() == boxes.size();
+    }
+
+    void loadHeaderIcon(BufferedImage img)
+    {
+        overallIcon.setIcon(new ImageIcon(img));
     }
 
     void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
     {
         final String subTitle;
-        if (type == DeathRecordType.OTHER)
+        if (type == DeathRecordType.UNIDENTIFIED)
         {
             subTitle = "(Unknown)";
         }
@@ -202,20 +259,122 @@ class DeathTrackerPanel extends PluginPanel
         rebuild();
     }
 
+    private void changeCollapse()
+    {
+        boolean isAllCollapsed = isAllCollapsed();
+
+        for (DeathTrackerBox box : boxes)
+        {
+            if (isAllCollapsed)
+            {
+                box.expand();
+            }
+            else if (!box.isCollapsed())
+            {
+                box.collapse();
+            }
+        }
+
+        updateCollapseText();
+    }
+
     private void rebuild()
     {
         SwingUtil.fastRemoveAll(logsContainer);
         boxes.clear();
 
-        Lists.reverse(sessionRecords).stream()
-                .collect(Collectors.toCollection(ArrayDeque::new))
-                .descendingIterator()
-                .forEachRemaining(this::buildBox);
+        aggregateRecords.forEach(this::buildBox);
+        sessionRecords.forEach(this::buildBox);
 
         boxes.forEach(DeathTrackerBox::rebuild);
         updateOverall();
         logsContainer.revalidate();
         logsContainer.repaint();
+    }
+
+    private DeathTrackerBox buildBox(DeathTrackerRecord record)
+    {
+        if (!record.matches(currentView, currentType))
+        {
+            return null;
+        }
+
+        for (DeathTrackerBox box : boxes)
+        {
+            if (box.matches(record))
+            {
+                // float the matched box to the top of the UI list if it's not already first
+                logsContainer.setComponentZOrder(box, 0);
+                box.addDeath(record);
+                return box;
+            }
+        }
+
+        remove(errorPanel);
+        actionsContainer.setVisible(true);
+        overallPanel.setVisible(true);
+
+        final DeathTrackerBox box = new DeathTrackerBox(itemManager, record.getTitle(), record.getType(), record.getSubTitle());
+        box.addDeath(record);
+
+        JPopupMenu popupMenu = box.getComponentPopupMenu();
+        if (popupMenu == null)
+        {
+            popupMenu = new JPopupMenu();
+            popupMenu.setBorder(new EmptyBorder(5, 5, 5, 5));
+            box.setComponentPopupMenu(popupMenu);
+        }
+
+        box.addMouseListener(new MouseAdapter()
+        {
+            @Override
+            public void mouseClicked(MouseEvent e)
+            {
+                if (e.getButton() == MouseEvent.BUTTON1)
+                {
+                    if (box.isCollapsed())
+                    {
+                        box.expand();
+                    }
+                    else
+                    {
+                        box.collapse();
+                    }
+                    updateCollapseText();
+                }
+            }
+        });
+
+        final JMenuItem reset = new JMenuItem("Reset All");
+        reset.addActionListener(e ->
+        {
+            final int result = JOptionPane.showOptionDialog(overallPanel, "This will permanently delete the current deaths from the client.",
+                    "Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
+                    null, new String[]{"Yes", "No"}, "No");
+
+            if (result != JOptionPane.YES_OPTION) {
+                return;
+            }
+            Predicate<DeathTrackerRecord> match = r -> r.matches(record.getTitle(), record.getType());
+            sessionRecords.removeIf(r -> r.matches(currentView, currentType));
+            aggregateRecords.removeIf(r -> r.matches(currentView, currentType));
+            boxes.removeIf(b -> b.matches(currentView, currentType));
+            updateOverall();
+            logsContainer.removeAll();
+            logsContainer.repaint();
+        });
+
+        popupMenu.add(reset);
+
+        boxes.add(box);
+        logsContainer.add(box, 0);
+
+        if (boxes.size() > MAX_DEATH_BOXES)
+        {
+            logsContainer.remove(boxes.remove(0));
+        }
+
+        return box;
     }
 
     private void updateOverall()

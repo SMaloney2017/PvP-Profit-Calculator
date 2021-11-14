@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2019, Adam <Adam@sigterm.info>
  * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
@@ -25,9 +26,18 @@
 
 package com.deathtracker;
 
-public enum DeathRecordType
+import java.util.Collection;
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import net.runelite.client.game.ItemStack;
+import com.deathtracker.DeathRecordType;
+
+@Data
+@AllArgsConstructor
+public class DeathReceived
 {
-    NPC,
-    PLAYER,
-    UNIDENTIFIED
+    private String name;
+    private int combatLevel;
+    private DeathRecordType type;
+    private Collection<ItemStack> items;
 }

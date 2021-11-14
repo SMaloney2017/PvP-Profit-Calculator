@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2020, Anthony <https://github.com/while-loop>
  * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
@@ -22,12 +23,39 @@
  * (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
-
 package com.deathtracker;
 
-public enum DeathRecordType
+import com.google.common.collect.ImmutableMap;
+import lombok.AllArgsConstructor;
+import net.runelite.api.ItemID;
+
+@AllArgsConstructor
+enum DeathTrackerMapping
 {
-    NPC,
-    PLAYER,
-    UNIDENTIFIED
+	CLUE_SCROLL_BEGINNER("Clue scroll (beginner)", ItemID.CLUE_SCROLL_BEGINNER),
+	CLUE_SCROLL_EASY("Clue scroll (easy)", ItemID.CLUE_SCROLL_EASY),
+	CLUE_SCROLL_MEDIUM("Clue scroll (medium)", ItemID.CLUE_SCROLL_MEDIUM),
+	CLUE_SCROLL_HARD("Clue scroll (hard)", ItemID.CLUE_SCROLL_HARD),
+	CLUE_SCROLL_ELITE("Clue scroll (elite)", ItemID.CLUE_SCROLL_ELITE),
+	CLUE_SCROLL_MASTER("Clue scroll (master)", ItemID.CLUE_SCROLL_MASTER);
+
+	private final String name;
+	private final int baseId;
+
+	private static final ImmutableMap<String, Integer> MAPPINGS;
+
+	static
+	{
+		ImmutableMap.Builder<String, Integer> map = ImmutableMap.builder();
+		for (DeathTrackerMapping mapping : values())
+		{
+			map.put(mapping.name, mapping.baseId);
+		}
+		MAPPINGS = map.build();
+	}
+
+	static int map(int itemId, String name)
+	{
+		return MAPPINGS.getOrDefault(name, itemId);
+	}
 }

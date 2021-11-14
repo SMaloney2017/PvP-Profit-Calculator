@@ -1,5 +1,6 @@
 /*
- * Copyright (c) 2018, Daddy Dozer <https://github.com/Dyldozer>
+ * Copyright (c) 2018, Tomas Slusny <slusnucky@gmail.com>
+ * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -37,11 +38,11 @@ class DeathTrackerItem
     private final int id;
     private final String name;
     private int quantity;
-    private final int gePrice;
+    private final int GePrice;
 
-    long getTotalGePrice()
+    long getTotalPrice()
     {
-        return (long) gePrice * quantity;
+        return (long) GePrice * quantity;
     }
 
 }

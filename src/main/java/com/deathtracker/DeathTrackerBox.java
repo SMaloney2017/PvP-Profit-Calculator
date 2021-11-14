@@ -30,23 +30,37 @@ package com.deathtracker;
 import com.google.common.base.Strings;
 import java.awt.BorderLayout;
 import java.awt.Color;
+import java.awt.Component;
 import java.awt.Dimension;
+import java.awt.GridLayout;
+import java.awt.image.BufferedImage;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.function.BiConsumer;
+import java.util.function.ToLongFunction;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.swing.Box;
 import javax.swing.BoxLayout;
+import javax.swing.ImageIcon;
 import javax.swing.JLabel;
+import javax.swing.JMenuItem;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
+import javax.swing.SwingConstants;
 import javax.swing.border.EmptyBorder;
 import lombok.AccessLevel;
 import lombok.Getter;
+import net.runelite.api.ItemID;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
+import net.runelite.client.util.AsyncBufferedImage;
+import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.Text;
-import com.deathtracker.DeathTrackerItem;
+import com.deathtracker.DeathRecordType;
 
 class DeathTrackerBox extends JPanel
 {
@@ -71,10 +85,12 @@ class DeathTrackerBox extends JPanel
     DeathTrackerBox(
             final ItemManager itemManager,
             final String id,
+            final DeathRecordType deathRecordType,
             @Nullable final String subtitle
     )
     {
         this.id = id;
+        this.deathRecordType = deathRecordType;
         this.itemManager = itemManager;
 
         setLayout(new BorderLayout(0, 1));
@@ -139,4 +155,157 @@ class DeathTrackerBox extends JPanel
         return this.id.equals(id) && deathRecordType == type;
     }
 
+    void addDeath(final DeathTrackerRecord record)
+    {
+        if (!matches(record))
+        {
+            throw new IllegalArgumentException(record.toString());
+        }
+
+        deaths += record.getDeaths();
+
+        outer:
+        for (DeathTrackerItem item : record.getItems())
+        {
+            final int mappedItemId = DeathTrackerMapping.map(item.getId(), item.getName());
+            for (int idx = 0; idx < items.size(); ++idx)
+            {
+                DeathTrackerItem i = items.get(idx);
+                if (mappedItemId == i.getId())
+                {
+                    items.set(idx, new DeathTrackerItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getGePrice());
+                    continue outer;
+                }
+            }
+
+            final DeathTrackerItem mappedItem = mappedItemId == item.getId()
+                    ? item
+                    : new DeathTrackerItem(mappedItemId, item.getName(), item.getQuantity(), item.getGePrice());
+            items.add(mappedItem);
+        }
+    }
+
+    void rebuild()
+    {
+        buildItems();
+
+        String priceTypeString = " Total: ";
+
+        priceLabel.setText(priceTypeString + QuantityFormatter.quantityToStackSize(totalPrice) + " gp");
+        priceLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice) + " gp");
+
+        final long deaths = getTotalDeaths();
+        if (deaths > 1)
+        {
+            subTitleLabel.setText("x " + deaths);
+            subTitleLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice / kills) + " gp (average)");
+        }
+
+        validate();
+        repaint();
+    }
+
+    void collapse()
+    {
+        if (!isCollapsed())
+        {
+            itemContainer.setVisible(false);
+            applyDimmer(false, logTitle);
+        }
+    }
+
+    void expand()
+    {
+        if (isCollapsed())
+        {
+            itemContainer.setVisible(true);
+            applyDimmer(true, logTitle);
+        }
+    }
+
+    boolean isCollapsed()
+    {
+        return !itemContainer.isVisible();
+    }
+
+    private void applyDimmer(boolean brighten, JPanel panel)
+    {
+        for (Component component : panel.getComponents())
+        {
+            Color color = component.getForeground();
+
+            component.setForeground(brighten ? color.brighter() : color.darker());
+        }
+    }
+
+    private void buildItems()
+    {
+        totalPrice = 0;
+
+        List<DeathTrackerItem> items = this.items;
+
+        /* Hide Ignored Items */
+
+        ToLongFunction<DeathTrackerItem> price = DeathTrackerItem::getTotalPrice;
+
+        totalPrice = items.stream()
+                .mapToLong(price)
+                .sum();
+
+        items.sort(Comparator.comparingLong(price).reversed());
+
+        final int rowSize = ((items.size() % ITEMS_PER_ROW == 0) ? 0 : 1) + items.size() / ITEMS_PER_ROW;
+
+        itemContainer.removeAll();
+        itemContainer.setLayout(new GridLayout(rowSize, ITEMS_PER_ROW, 1, 1));
+
+        for (int i = 0; i < rowSize * ITEMS_PER_ROW; i++)
+        {
+            final JPanel slotContainer = new JPanel();
+            slotContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+
+            if (i < items.size())
+            {
+                final DeathTrackerItem item = items.get(i);
+                final JLabel imageLabel = new JLabel();
+                imageLabel.setToolTipText(buildToolTip(item));
+                imageLabel.setVerticalAlignment(SwingConstants.CENTER);
+                imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+
+                AsyncBufferedImage itemImage = itemManager.getImage(item.getId(), item.getQuantity(), item.getQuantity() > 1);
+
+                itemImage.addTo(imageLabel);
+
+                slotContainer.add(imageLabel);
+
+                /* Toggle Item */
+            }
+
+            itemContainer.add(slotContainer);
+        }
+
+        itemContainer.repaint();
+    }
+
+    private static String buildToolTip(DeathTrackerItem item)
+    {
+        final String name = item.getName();
+        final int quantity = item.getQuantity();
+        final long price = item.getTotalPrice();
+        final StringBuilder sb = new StringBuilder("<html>");
+        if (item.getId() == ItemID.COINS_995)
+        {
+            sb.append("</html>");
+            return sb.toString();
+        }
+
+        sb.append("<br>GE: ").append(QuantityFormatter.quantityToStackSize(price));
+        if (quantity > 1)
+        {
+            sb.append(" (").append(QuantityFormatter.quantityToStackSize(item.getGePrice())).append(" ea)");
+        }
+
+        sb.append("</html>");
+        return sb.toString();
+    }
 }
