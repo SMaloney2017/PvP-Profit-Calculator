@@ -28,71 +28,191 @@
 
 package com.deathtracker;
 
-import com.google.inject.Provides;
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
+
 import java.awt.image.BufferedImage;
-import java.io.File;
-import java.io.IOException;
-import java.nio.file.Files;
-import java.util.ArrayDeque;
-import java.util.Deque;
-import java.util.HashMap;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Comparator;
 import java.util.List;
-import java.util.Map;
-import java.util.Random;
-import java.util.regex.Pattern;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.inject.Inject;
-import javax.inject.Singleton;
-import javax.swing.SwingUtilities;
-import lombok.Getter;
+
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import static net.runelite.api.AnimationID.*;
-import static net.runelite.api.ItemID.*;
-import static net.runelite.client.RuneLite.RUNELITE_DIR;
-import net.runelite.api.AnimationID;
-import net.runelite.api.ChatMessageType;
 import net.runelite.api.Client;
-import net.runelite.api.EquipmentInventorySlot;
-import net.runelite.api.GameObject;
-import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
-import net.runelite.api.Item;
 import net.runelite.api.ItemComposition;
-import net.runelite.api.ItemContainer;
-import net.runelite.api.ObjectID;
-import net.runelite.api.Player;
-import net.runelite.api.Projectile;
-import net.runelite.api.ProjectileID;
-import net.runelite.api.VarPlayer;
-import net.runelite.api.Varbits;
-import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.AnimationChanged;
-import net.runelite.api.events.ChatMessage;
-import net.runelite.api.events.GameObjectSpawned;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
-import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.api.events.MenuOptionClicked;
-import net.runelite.api.events.ProjectileMoved;
-import net.runelite.api.events.StatChanged;
-import net.runelite.api.events.VarbitChanged;
-import net.runelite.client.config.ConfigManager;
+import net.runelite.api.SpriteID;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemStack;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
-import net.runelite.http.api.item.ItemPrice;
+import net.runelite.http.api.loottracker.GameItem;
 
-@Singleton
-@Slf4j
 @PluginDescriptor(
 	name = "Death-Tracker",
 	description = "Tracks [cost of] items lost to deaths during session",
 	enabledByDefault = false
 )
+
+@Slf4j
 public class DeathTrackerPlugin extends Plugin
 {
+	private static final Set<Integer> LAST_MAN_STANDING_REGIONS = ImmutableSet.of(13658, 13659, 13660, 13914, 13915, 13916, 13918, 13919, 13920, 14174, 14175, 14176, 14430, 14431, 14432);
+	private static final Set<Integer> SOUL_WARS_REGIONS = ImmutableSet.of(8493, 8749, 9005);
 
+	@Inject
+	private Client client;
+
+	@Inject
+	private ClientToolbar clientToolbar;
+
+	@Inject
+	private ItemManager itemManager;
+
+	@Inject
+	private SpriteManager spriteManager;
+
+	private DeathTrackerPanel panel;
+	private NavigationButton navButton;
+	@VisibleForTesting
+	String eventType;
+	@VisibleForTesting
+	DeathRecordType deathRecordType;
+	private Object metadata;
+
+	private static Collection<ItemStack> stack(Collection<ItemStack> items)
+	{
+		final List<ItemStack> list = new ArrayList<>();
+
+		for (final ItemStack item : items)
+		{
+			int quantity = 0;
+			for (final ItemStack i : list)
+			{
+				if (i.getId() == item.getId())
+				{
+					quantity = i.getQuantity();
+					list.remove(i);
+					break;
+				}
+			}
+			if (quantity > 0)
+			{
+				list.add(new ItemStack(item.getId(), item.getQuantity() + quantity, item.getLocation()));
+			}
+			else
+			{
+				list.add(item);
+			}
+		}
+
+		return list;
+	}
+
+	@Override
+	protected void startUp()
+	{
+		panel = new DeathTrackerPanel(this, itemManager);
+		spriteManager.getSpriteAsync(SpriteID.TAB_INVENTORY, 0, panel::loadHeaderIcon);
+
+		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "skull.png");
+
+		navButton = NavigationButton.builder()
+				.tooltip("Death Tracker")
+				.icon(icon)
+				.priority(5)
+				.panel(panel)
+				.build();
+
+		clientToolbar.addNavigation(navButton);
+	}
+
+	@Override
+	protected void shutDown()
+	{
+		clientToolbar.removeNavigation(navButton);
+	}
+
+	void addDeath(@NonNull String name, int combatLevel, DeathRecordType type, Object metadata, Collection<ItemStack> items)
+	{
+
+	}
+
+	@Subscribe
+	public void onDeathToNpc()
+	{
+
+	}
+
+	@Subscribe
+	public void DeathToPlayer()
+	{
+		if (isPlayerWithinMapRegion(LAST_MAN_STANDING_REGIONS) || isPlayerWithinMapRegion(SOUL_WARS_REGIONS))
+		{
+			return;
+		}
+
+	}
+
+	private DeathTrackerItem buildLootTrackerItem(int itemId, int quantity)
+	{
+		final ItemComposition itemComposition = itemManager.getItemComposition(itemId);
+		final int gePrice = itemManager.getItemPrice(itemId);
+		final int haPrice = itemComposition.getHaPrice();
+
+		return new DeathTrackerItem(
+				itemId,
+				itemComposition.getName(),
+				quantity,
+				gePrice);
+	}
+
+	private DeathTrackerItem[] buildEntries(final Collection<ItemStack> itemStacks)
+	{
+		return itemStacks.stream()
+				.map(itemStack -> buildLootTrackerItem(itemStack.getId(), itemStack.getQuantity()))
+				.toArray(DeathTrackerItem[]::new);
+	}
+
+	private static Collection<GameItem> toGameItems(Collection<ItemStack> items)
+	{
+		return items.stream()
+				.map(item -> new GameItem(item.getId(), item.getQuantity()))
+				.collect(Collectors.toList());
+	}
+
+	private boolean isPlayerWithinMapRegion(Set<Integer> definedMapRegions)
+	{
+		final int[] mapRegions = client.getMapRegions();
+
+		for (int region : mapRegions)
+		{
+			if (definedMapRegions.contains(region))
+			{
+				return true;
+			}
+		}
+
+		return false;
+	}
+
+	private long getTotalPrice(Collection<ItemStack> items)
+	{
+		long totalPrice = 0;
+
+		for (final ItemStack itemStack : items)
+		{
+			totalPrice += (long) itemManager.getItemPrice(itemStack.getId()) * itemStack.getQuantity();
+		}
+
+		return totalPrice;
+	}
 }

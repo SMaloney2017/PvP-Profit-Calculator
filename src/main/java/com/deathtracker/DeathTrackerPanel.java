@@ -28,8 +28,6 @@
 package com.deathtracker;
 
 import static com.google.common.collect.Iterables.concat;
-
-import static com.google.common.collect.Iterables.concat;
 import com.google.common.collect.Lists;
 import java.awt.BorderLayout;
 import java.awt.Color;
@@ -68,15 +66,11 @@ import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.SwingUtil;
-import com.deathtracker.DeathTrackerPlugin;
-import com.deathtracker.DeathTrackerConfig;
-import com.deathtracker.DeathTrackerItem;
+import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 import com.deathtracker.DeathTrackerRecord;
-import com.deathtracker.DeathRecordType;
 
 class DeathTrackerPanel extends PluginPanel
 {
-    private static final int MAX_DEATH_BOXES = 500;
 
     private static final ImageIcon COLLAPSE_ICON;
     private static final ImageIcon EXPAND_ICON;
@@ -96,9 +90,6 @@ class DeathTrackerPanel extends PluginPanel
     private final JLabel overallCostLabel = new JLabel();
     private final JLabel overallIcon = new JLabel();
 
-    private int overallDeaths;
-    private int overallCost;
-
     /* Details and actions */
     private final JPanel actionsContainer = new JPanel();
     private final JButton collapseBtn = new JButton();
@@ -112,25 +103,23 @@ class DeathTrackerPanel extends PluginPanel
 
     private final ItemManager itemManager;
     private final DeathTrackerPlugin plugin;
-    private final DeathTrackerConfig config;
 
     private String currentView;
     private DeathRecordType currentType;
 
     static {
-        final BufferedImage collapseImg = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "collapsed.png");
-        final BufferedImage expandedImg = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "expanded.png");
+        final BufferedImage collapseImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "collapsed.png");
+        final BufferedImage expandedImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "expanded.png");
 
         COLLAPSE_ICON = new ImageIcon(collapseImg);
         EXPAND_ICON = new ImageIcon(expandedImg);
     }
 
-    DeathTrackerPanel(final ItemManager itemManager, final DeathTrackerPlugin plugin, final DeathTrackerConfig config)
+    DeathTrackerPanel(final DeathTrackerPlugin plugin, final ItemManager itemManager)
     {
 
         this.itemManager = itemManager;
         this.plugin = plugin;
-        this.config = config;
 
         setBorder(new EmptyBorder(6, 6, 6, 6));
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -157,6 +146,8 @@ class DeathTrackerPanel extends PluginPanel
         collapseBtn.setUI(new BasicButtonUI());
         collapseBtn.addActionListener(ev -> changeCollapse());
         viewControls.add(collapseBtn);
+
+        actionsContainer.add(viewControls, BorderLayout.EAST);
 
         /* Panel that will contain overall data */
         overallPanel.setBorder(BorderFactory.createCompoundBorder(
@@ -195,6 +186,7 @@ class DeathTrackerPanel extends PluginPanel
             updateOverall();
             logsContainer.removeAll();
             logsContainer.repaint();
+
         });
 
         final JPopupMenu popupMenu = new JPopupMenu();
@@ -231,18 +223,9 @@ class DeathTrackerPanel extends PluginPanel
     void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
     {
         final String subTitle;
-        if (type == DeathRecordType.UNIDENTIFIED)
-        {
-            subTitle = "(Unknown)";
-        }
-        else
-        {
-            subTitle = actorLevel > -1 ? "(lvl-" + actorLevel + ")" : "";
-        }
+        subTitle = actorLevel > -1 ? "(lvl-" + actorLevel + ")" : "";
         final DeathTrackerRecord record = new DeathTrackerRecord(eventName, subTitle, type, items, 1);
         sessionRecords.add(record);
-
-        /* Hide if null */
 
         DeathTrackerBox box = buildBox(record);
         if (box != null)
@@ -356,11 +339,11 @@ class DeathTrackerPanel extends PluginPanel
                 return;
             }
             Predicate<DeathTrackerRecord> match = r -> r.matches(record.getTitle(), record.getType());
-            sessionRecords.removeIf(r -> r.matches(currentView, currentType));
-            aggregateRecords.removeIf(r -> r.matches(currentView, currentType));
-            boxes.removeIf(b -> b.matches(currentView, currentType));
+            sessionRecords.removeIf(match);
+            aggregateRecords.removeIf(match);
+            boxes.remove(box);
             updateOverall();
-            logsContainer.removeAll();
+            logsContainer.remove(box);
             logsContainer.repaint();
         });
 
@@ -368,11 +351,6 @@ class DeathTrackerPanel extends PluginPanel
 
         boxes.add(box);
         logsContainer.add(box, 0);
-
-        if (boxes.size() > MAX_DEATH_BOXES)
-        {
-            logsContainer.remove(boxes.remove(0));
-        }
 
         return box;
     }
@@ -382,10 +360,15 @@ class DeathTrackerPanel extends PluginPanel
         long overallDeaths = 0;
         long overallCost = 0;
 
-        Iterable<DeathTrackerRecord> records = sessionRecords;
+        Iterable<DeathTrackerRecord> records = concat(aggregateRecords, sessionRecords);
 
         for (DeathTrackerRecord record : records)
         {
+            if (!record.matches(currentView, currentType))
+            {
+                continue;
+            }
+
             int present = record.getItems().length;
 
             for (DeathTrackerItem item : record.getItems())
@@ -397,9 +380,10 @@ class DeathTrackerPanel extends PluginPanel
                 overallDeaths += record.getDeaths();
             }
         }
-        overallDeathsLabel.setText(htmlLabel("Total count: ", overallDeaths));
+        overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths));
         overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost));
         overallCostLabel.setToolTipText("<html>Total Cost: " + QuantityFormatter.formatNumber(overallCost) + "</html>");
+        updateCollapseText();
     }
 
     private static String htmlLabel(String key, long value)

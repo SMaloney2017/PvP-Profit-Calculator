@@ -128,11 +128,7 @@ class DeathTrackerBox extends JPanel
         add(logTitle, BorderLayout.NORTH);
         add(itemContainer, BorderLayout.CENTER);
 
-        final JPopupMenu popupMenu = new JPopupMenu();
-        popupMenu.setBorder(new EmptyBorder(5, 5, 5, 5));
-        setComponentPopupMenu(popupMenu);
-
-        /* Toggle Include Loot */
+        /* Include/ Ignore Loot */
     }
 
     public int getTotalDeaths()
@@ -164,25 +160,6 @@ class DeathTrackerBox extends JPanel
 
         deaths += record.getDeaths();
 
-        outer:
-        for (DeathTrackerItem item : record.getItems())
-        {
-            final int mappedItemId = DeathTrackerMapping.map(item.getId(), item.getName());
-            for (int idx = 0; idx < items.size(); ++idx)
-            {
-                DeathTrackerItem i = items.get(idx);
-                if (mappedItemId == i.getId())
-                {
-                    items.set(idx, new DeathTrackerItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getGePrice());
-                    continue outer;
-                }
-            }
-
-            final DeathTrackerItem mappedItem = mappedItemId == item.getId()
-                    ? item
-                    : new DeathTrackerItem(mappedItemId, item.getName(), item.getQuantity(), item.getGePrice());
-            items.add(mappedItem);
-        }
     }
 
     void rebuild()
@@ -198,7 +175,7 @@ class DeathTrackerBox extends JPanel
         if (deaths > 1)
         {
             subTitleLabel.setText("x " + deaths);
-            subTitleLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice / kills) + " gp (average)");
+            subTitleLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice / deaths) + " gp (average)");
         }
 
         validate();
@@ -246,7 +223,15 @@ class DeathTrackerBox extends JPanel
 
         /* Hide Ignored Items */
 
-        ToLongFunction<DeathTrackerItem> price = DeathTrackerItem::getTotalPrice;
+        boolean isHidden = items.isEmpty();
+        setVisible(!isHidden);
+
+        if (isHidden)
+        {
+            return;
+        }
+
+        ToLongFunction<DeathTrackerItem> price = DeathTrackerItem::getTotalCost;
 
         totalPrice = items.stream()
                 .mapToLong(price)
@@ -291,7 +276,7 @@ class DeathTrackerBox extends JPanel
     {
         final String name = item.getName();
         final int quantity = item.getQuantity();
-        final long price = item.getTotalPrice();
+        final long price = item.getTotalCost();
         final StringBuilder sb = new StringBuilder("<html>");
         if (item.getId() == ItemID.COINS_995)
         {
@@ -302,7 +287,7 @@ class DeathTrackerBox extends JPanel
         sb.append("<br>GE: ").append(QuantityFormatter.quantityToStackSize(price));
         if (quantity > 1)
         {
-            sb.append(" (").append(QuantityFormatter.quantityToStackSize(item.getGePrice())).append(" ea)");
+            sb.append(" (").append(QuantityFormatter.quantityToStackSize(item.getCost())).append(" ea)");
         }
 
         sb.append("</html>");

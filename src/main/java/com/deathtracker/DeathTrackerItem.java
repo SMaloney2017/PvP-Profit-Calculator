@@ -38,11 +38,11 @@ class DeathTrackerItem
     private final int id;
     private final String name;
     private int quantity;
-    private final int GePrice;
+    private final int cost;
 
-    long getTotalPrice()
+    long getTotalCost()
     {
-        return (long) GePrice * quantity;
+        return (long) cost * quantity;
     }
 
 }
