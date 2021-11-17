@@ -120,7 +120,7 @@ public class DeathTrackerPlugin extends Plugin
 	protected void startUp()
 	{
 		panel = new DeathTrackerPanel(this, itemManager);
-		spriteManager.getSpriteAsync(SpriteID.TAB_INVENTORY, 0, panel::loadHeaderIcon);
+		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderIcon);
 
 		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "skull.png");
 
