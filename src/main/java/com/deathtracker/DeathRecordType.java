@@ -28,5 +28,6 @@ package com.deathtracker;
 public enum DeathRecordType
 {
     NPC,
-    PLAYER
+    PLAYER,
+    OTHER
 }

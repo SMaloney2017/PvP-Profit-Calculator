@@ -34,12 +34,11 @@ import com.google.common.collect.ImmutableSet;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.inject.Inject;
-
+import javax.swing.SwingUtilities;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
@@ -143,7 +142,10 @@ public class DeathTrackerPlugin extends Plugin
 
 	void addDeath(@NonNull String name, int combatLevel, DeathRecordType type, Object metadata, Collection<ItemStack> items)
 	{
+		final DeathTrackerItem[] entries = buildEntries(stack(items));
+		SwingUtilities.invokeLater(() -> panel.add(name, type, combatLevel, entries));
 
+		/* Save Loot */
 	}
 
 	@Subscribe

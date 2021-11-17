@@ -223,7 +223,14 @@ class DeathTrackerPanel extends PluginPanel
     void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
     {
         final String subTitle;
-        subTitle = actorLevel > -1 ? "(lvl-" + actorLevel + ")" : "";
+        if(type == DeathRecordType.OTHER)
+        {
+            subTitle = "(Unidentified)";
+        }
+        else
+        {
+            subTitle = actorLevel > -1 ? "(lvl-" + actorLevel + ")" : "";
+        }
         final DeathTrackerRecord record = new DeathTrackerRecord(eventName, subTitle, type, items, 1);
         sessionRecords.add(record);
 
