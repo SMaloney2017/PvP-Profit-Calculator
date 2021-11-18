@@ -31,29 +31,88 @@ package com.deathtracker;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
 
+import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.HashMultiset;
+import com.google.common.collect.ImmutableMap;
+import com.google.common.collect.ImmutableMultimap;
+import com.google.common.collect.ImmutableSet;
+import com.google.common.collect.Multimap;
+import com.google.common.collect.Multiset;
+import com.google.common.collect.Multisets;
+import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
+import java.io.IOException;
+import java.time.Instant;
+import java.time.temporal.ChronoUnit;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.LinkedHashSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.Future;
+import java.util.concurrent.ScheduledExecutorService;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
 import java.util.stream.Collectors;
+import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.swing.SwingUtilities;
+import javax.swing.ImageIcon;
+import lombok.AccessLevel;
+import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
-import net.runelite.api.ItemComposition;
-import net.runelite.api.SpriteID;
+import net.runelite.api.*;
+import net.runelite.api.coords.WorldPoint;
+import net.runelite.api.events.ChatMessage;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.MenuOptionClicked;
+import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.widgets.WidgetID;
+import net.runelite.client.account.AccountSession;
+import net.runelite.client.account.SessionManager;
+import net.runelite.client.callback.ClientThread;
+import net.runelite.client.chat.ChatColorType;
+import net.runelite.client.chat.ChatMessageBuilder;
+import net.runelite.client.chat.ChatMessageManager;
+import net.runelite.client.chat.QueuedMessage;
+import net.runelite.client.config.ConfigManager;
+import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.client.events.ClientShutdown;
+import net.runelite.client.events.ConfigChanged;
+import net.runelite.client.events.NpcLootReceived;
+import net.runelite.client.events.PlayerLootReceived;
+import net.runelite.client.events.SessionClose;
+import net.runelite.client.events.SessionOpen;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemStack;
+import net.runelite.client.game.LootManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
+import net.runelite.client.task.Schedule;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
+import net.runelite.client.util.QuantityFormatter;
+import net.runelite.client.util.Text;
 import net.runelite.http.api.loottracker.GameItem;
+import net.runelite.http.api.loottracker.LootAggregate;
+import net.runelite.http.api.loottracker.LootRecord;
+import net.runelite.http.api.loottracker.LootRecordType;
+import net.runelite.http.api.loottracker.LootTrackerClient;
+import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
+import okhttp3.OkHttpClient;
+import org.apache.commons.text.WordUtils;
 
 @PluginDescriptor(
 	name = "Death-Tracker",
@@ -79,8 +138,13 @@ public class DeathTrackerPlugin extends Plugin
 	@Inject
 	private SpriteManager spriteManager;
 
+	@Inject
+	private ChatMessageManager chatMessageManager;
+
+
 	private DeathTrackerPanel panel;
 	private NavigationButton navButton;
+
 	@VisibleForTesting
 	String eventType;
 	@VisibleForTesting
@@ -116,17 +180,23 @@ public class DeathTrackerPlugin extends Plugin
 		return list;
 	}
 
+	final BufferedImage unskulledIcon = ImageUtil.loadImageResource(getClass(), "unskulled.png");
+	final BufferedImage skulledIcon = ImageUtil.loadImageResource(getClass(), "skull.png");
+	final ImageIcon SKULL = new ImageIcon(skulledIcon);
+	final ImageIcon UNSKULLED = new ImageIcon(unskulledIcon);
+
 	@Override
 	protected void startUp()
 	{
 		panel = new DeathTrackerPanel(this, itemManager);
-		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderIcon);
 
-		final BufferedImage icon = ImageUtil.loadImageResource(getClass(), "skull.png");
+		spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayIcon);
+		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderIcon);
+		panel.skullStatus.setIcon(UNSKULLED);
 
 		navButton = NavigationButton.builder()
 				.tooltip("Death Tracker")
-				.icon(icon)
+				.icon(skulledIcon)
 				.priority(5)
 				.panel(panel)
 				.build();
@@ -140,28 +210,34 @@ public class DeathTrackerPlugin extends Plugin
 		clientToolbar.removeNavigation(navButton);
 	}
 
-	void addDeath(@NonNull String name, int combatLevel, DeathRecordType type, Object metadata, Collection<ItemStack> items)
-	{
-		final DeathTrackerItem[] entries = buildEntries(stack(items));
-		SwingUtilities.invokeLater(() -> panel.add(name, type, combatLevel, entries));
-
-		/* Save Loot */
-	}
-
 	@Subscribe
-	public void onDeathToNpc()
+	public void onVarbitChanged(VarbitChanged event)
 	{
+		setSkull();
+		setProtectItem();
 
 	}
 
-	@Subscribe
-	public void DeathToPlayer()
-	{
-		if (isPlayerWithinMapRegion(LAST_MAN_STANDING_REGIONS) || isPlayerWithinMapRegion(SOUL_WARS_REGIONS))
-		{
-			return;
+	void setProtectItem(){
+		if(client.isPrayerActive(Prayer.PROTECT_ITEM)){
+			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPrayIcon);
+			panel.prayerStatus.setToolTipText("Protect Item Enabled");
+		}else{
+			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayIcon);
+			panel.prayerStatus.setToolTipText("Protect Item Disabled");
 		}
+	}
 
+	void setSkull(){
+		final Player local = client.getLocalPlayer();
+		SkullIcon skullSprite = local.getSkullIcon();
+		if(skullSprite != null){
+			panel.skullStatus.setIcon(SKULL);
+			panel.skullStatus.setToolTipText("Skulled");
+		}else{
+			panel.skullStatus.setIcon(UNSKULLED);
+			panel.skullStatus.setToolTipText("Un-Skulled");
+		}
 	}
 
 	private DeathTrackerItem buildLootTrackerItem(int itemId, int quantity)

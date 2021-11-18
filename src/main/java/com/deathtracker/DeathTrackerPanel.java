@@ -29,10 +29,8 @@ package com.deathtracker;
 
 import static com.google.common.collect.Iterables.concat;
 import com.google.common.collect.Lists;
-import java.awt.BorderLayout;
-import java.awt.Color;
-import java.awt.Dimension;
-import java.awt.GridLayout;
+
+import java.awt.*;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
@@ -42,6 +40,7 @@ import java.util.Collection;
 import java.util.List;
 import java.util.function.Predicate;
 import java.util.stream.Collectors;
+import javax.inject.Inject;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ButtonGroup;
@@ -54,10 +53,15 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.JRadioButton;
 import javax.swing.JToggleButton;
+import javax.swing.JScrollPane;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicButtonUI;
 import javax.swing.plaf.basic.BasicToggleButtonUI;
+import javax.swing.border.LineBorder;
+import net.runelite.api.SpriteID;
+import net.runelite.api.SpritePixels;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
@@ -71,6 +75,8 @@ import com.deathtracker.DeathTrackerRecord;
 
 class DeathTrackerPanel extends PluginPanel
 {
+    @Inject
+    private SpriteManager spriteManager;
 
     private static final ImageIcon COLLAPSE_ICON;
     private static final ImageIcon EXPAND_ICON;
@@ -92,7 +98,13 @@ class DeathTrackerPanel extends PluginPanel
 
     /* Details and actions */
     private final JPanel actionsContainer = new JPanel();
+    private final JLabel actionsRiskedLabel = new JLabel();
+    private final JLabel actionsProtectedLabel = new JLabel();
+
     private final JButton collapseBtn = new JButton();
+    private final JLabel protectedItems = new JLabel();
+    final JLabel prayerStatus = new JLabel();
+    final JLabel skullStatus = new JLabel();
 
     /* Aggregate of all deaths */
     private final List<DeathTrackerRecord> aggregateRecords = new ArrayList<>();
@@ -107,6 +119,8 @@ class DeathTrackerPanel extends PluginPanel
     private String currentView;
     private DeathRecordType currentType;
     private boolean collapseAll = false;
+    public boolean protectionEnabled = false;
+    public boolean skull = false;
 
     static {
         final BufferedImage collapseImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "collapsed.png");
@@ -130,14 +144,32 @@ class DeathTrackerPanel extends PluginPanel
         layoutPanel.setLayout(new BoxLayout(layoutPanel, BoxLayout.Y_AXIS));
         add(layoutPanel, BorderLayout.NORTH);
 
-        actionsContainer.setLayout(new BorderLayout());
+        actionsContainer.setLayout(new FlowLayout(FlowLayout.LEFT));
         actionsContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        actionsContainer.setPreferredSize(new Dimension(0, 30));
         actionsContainer.setBorder(new EmptyBorder(5, 5, 5, 10));
         actionsContainer.setVisible(true);
 
-        final JPanel viewControls = new JPanel(new GridLayout(1, 3, 10, 0));
-        viewControls.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        prayerStatus.setIconTextGap(0);
+        prayerStatus.setBorder(new EmptyBorder(0,0,0,5));
+        prayerStatus.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        prayerStatus.setToolTipText("Protect Item Disabled");
+        actionsContainer.add(prayerStatus);
+
+        skullStatus.setIconTextGap(0);
+        skullStatus.setBorder(new EmptyBorder(0,0,0,5));
+        skullStatus.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        skullStatus.setToolTipText("Unskulled");
+        actionsContainer.add(skullStatus);
+
+        final JPanel actionsInfo = new JPanel();
+        actionsInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        actionsInfo.setLayout(new GridLayout(2, 1));
+        actionsInfo.setBorder(new EmptyBorder(0, 0, 0, 0));
+        actionsRiskedLabel.setFont(FontManager.getRunescapeSmallFont());
+        actionsProtectedLabel.setFont(FontManager.getRunescapeSmallFont());
+        actionsInfo.add(actionsProtectedLabel);
+        actionsInfo.add(actionsRiskedLabel);
+        actionsContainer.add(actionsInfo);
 
         SwingUtil.removeButtonDecorations(collapseBtn);
         collapseBtn.setIcon(EXPAND_ICON);
@@ -153,9 +185,6 @@ class DeathTrackerPanel extends PluginPanel
                 collapseAll = !collapseAll;
             }
         });
-        viewControls.add(collapseBtn);
-
-        actionsContainer.add(viewControls, BorderLayout.EAST);
 
         /* Panel that will contain overall data */
         overallPanel.setBorder(BorderFactory.createCompoundBorder(
@@ -176,6 +205,11 @@ class DeathTrackerPanel extends PluginPanel
         overallInfo.add(overallCostLabel);
         overallPanel.add(overallIcon, BorderLayout.WEST);
         overallPanel.add(overallInfo, BorderLayout.CENTER);
+
+        final JPanel toggleCollapse = new JPanel();
+        toggleCollapse.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        toggleCollapse.add(collapseBtn);
+        overallPanel.add(toggleCollapse, BorderLayout.EAST);
 
         final JMenuItem reset = new JMenuItem("Reset All");
         reset.addActionListener(e -> resetAll());
@@ -210,6 +244,16 @@ class DeathTrackerPanel extends PluginPanel
     void loadHeaderIcon(BufferedImage img)
     {
         overallIcon.setIcon(new ImageIcon(img));
+    }
+
+    void loadPrayIcon(BufferedImage img)
+    {
+        prayerStatus.setIcon(new ImageIcon(img));
+    }
+
+    void loadSkullIcon(BufferedImage img)
+    {
+        skullStatus.setIcon(new ImageIcon(img));
     }
 
     void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
@@ -341,6 +385,8 @@ class DeathTrackerPanel extends PluginPanel
     {
         long overallDeaths = 0;
         long overallCost = 0;
+        long overallRisk = 0;
+        long overallProtected = 0;
 
         Iterable<DeathTrackerRecord> records = concat(aggregateRecords, sessionRecords);
 
@@ -364,6 +410,9 @@ class DeathTrackerPanel extends PluginPanel
         }
         overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths));
         overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost));
+        actionsProtectedLabel.setText("<html><font color=green>Protected Wealth: " + overallProtected + " </font></html>");
+        actionsRiskedLabel.setText("<html><font color=red>Risked Wealth: " + overallRisk + " </font></html>");
+
         updateCollapseText();
     }
 
