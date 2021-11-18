@@ -156,13 +156,11 @@ class DeathTrackerPanel extends PluginPanel
         prayerStatus.setIconTextGap(0);
         prayerStatus.setBorder(new EmptyBorder(0,0,0,5));
         prayerStatus.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        prayerStatus.setToolTipText(protectionEnabled ? "Protect Item Enabled" : "Protect Item Disabled");
         actionsContainer.add(prayerStatus);
 
         skullStatus.setIconTextGap(0);
         skullStatus.setBorder(new EmptyBorder(0,0,0,5));
         skullStatus.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        skullStatus.setToolTipText(skull ? "Skulled" : "Unskulled");
         actionsContainer.add(skullStatus);
 
         actionsInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -172,8 +170,6 @@ class DeathTrackerPanel extends PluginPanel
         actionsInfo.add(actionsProtectedLabel);
         actionsInfo.add(actionsRiskedLabel);
         actionsContainer.add(actionsInfo);
-
-
 
         SwingUtil.removeButtonDecorations(collapseBtn);
         collapseBtn.setIcon(EXPAND_ICON);
@@ -454,12 +450,14 @@ class DeathTrackerPanel extends PluginPanel
 
     public void updateActionsToolTip()
     {
+        skullStatus.setToolTipText(skull ? "Skulled" : "Unskulled");
+        prayerStatus.setToolTipText(protectionEnabled ? "Protect Item Enabled" : "Protect Item Disabled");
         actionsInfo.setToolTipText(
                 "<html>" +
-                        "<p>PvP World: <font color=#FFFF00>" + pvpWorld + "</font>" +
-                        "<p>High Risk: <font color=#FFFF00>" + highRiskWorld + "</font>" +
-                        "<p>Skull Active: <font color=#FFFF00>" + skull + "</font>" +
-                        "<p>Protect Item: <font color=#FFFF00>" + protectionEnabled + "</font>" +
+                        "<p>PvP World: <font color=" + (pvpWorld ? "#00FF00" : "#FF0000") + ">" + pvpWorld + "</font>" +
+                        "<p>High Risk: <font color=" + (highRiskWorld ? "#00FF00" : "#FF0000") + ">" +  highRiskWorld + "</font>" +
+                        "<p>Skull Active: <font color=" + (skull ? "#00FF00" : "#FF0000") + ">" + skull + "</font>" +
+                        "<p>Protect Item: <font color=" + (protectionEnabled ? "#00FF00" : "#FF0000") + ">" +  protectionEnabled + "</font>" +
                 "</html>"
         );
     }

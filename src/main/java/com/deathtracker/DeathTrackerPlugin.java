@@ -152,6 +152,8 @@ public class DeathTrackerPlugin extends Plugin
 
 	final BufferedImage unskulledIcon = ImageUtil.loadImageResource(getClass(), "unskulled.png");
 	final BufferedImage skulledIcon = ImageUtil.loadImageResource(getClass(), "skull.png");
+	final BufferedImage navIcon = ImageUtil.loadImageResource(getClass(), "icon.png");
+
 	final ImageIcon SKULL = new ImageIcon(skulledIcon);
 	final ImageIcon UNSKULLED = new ImageIcon(unskulledIcon);
 
@@ -195,7 +197,7 @@ public class DeathTrackerPlugin extends Plugin
 
 		navButton = NavigationButton.builder()
 				.tooltip("Death Tracker")
-				.icon(skulledIcon)
+				.icon(navIcon)
 				.priority(5)
 				.panel(panel)
 				.build();
