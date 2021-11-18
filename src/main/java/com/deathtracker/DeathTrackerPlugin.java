@@ -141,7 +141,6 @@ public class DeathTrackerPlugin extends Plugin
 	@Inject
 	private ChatMessageManager chatMessageManager;
 
-
 	private DeathTrackerPanel panel;
 	private NavigationButton navButton;
 
@@ -150,6 +149,11 @@ public class DeathTrackerPlugin extends Plugin
 	@VisibleForTesting
 	DeathRecordType deathRecordType;
 	private Object metadata;
+
+	final BufferedImage unskulledIcon = ImageUtil.loadImageResource(getClass(), "unskulled.png");
+	final BufferedImage skulledIcon = ImageUtil.loadImageResource(getClass(), "skull.png");
+	final ImageIcon SKULL = new ImageIcon(skulledIcon);
+	final ImageIcon UNSKULLED = new ImageIcon(unskulledIcon);
 
 	private static Collection<ItemStack> stack(Collection<ItemStack> items)
 	{
@@ -180,18 +184,13 @@ public class DeathTrackerPlugin extends Plugin
 		return list;
 	}
 
-	final BufferedImage unskulledIcon = ImageUtil.loadImageResource(getClass(), "unskulled.png");
-	final BufferedImage skulledIcon = ImageUtil.loadImageResource(getClass(), "skull.png");
-	final ImageIcon SKULL = new ImageIcon(skulledIcon);
-	final ImageIcon UNSKULLED = new ImageIcon(unskulledIcon);
-
 	@Override
 	protected void startUp()
 	{
 		panel = new DeathTrackerPanel(this, itemManager);
 
-		spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayIcon);
-		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderIcon);
+		spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPraySprite);
+		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderSprite);
 		panel.skullStatus.setIcon(UNSKULLED);
 
 		navButton = NavigationButton.builder()
@@ -215,29 +214,30 @@ public class DeathTrackerPlugin extends Plugin
 	{
 		setSkull();
 		setProtectItem();
-
 	}
 
-	void setProtectItem(){
+	private void setProtectItem(){
 		if(client.isPrayerActive(Prayer.PROTECT_ITEM)){
-			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPrayIcon);
-			panel.prayerStatus.setToolTipText("Protect Item Enabled");
+			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPraySprite);
+			panel.protectionEnabled = true;
 		}else{
-			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayIcon);
-			panel.prayerStatus.setToolTipText("Protect Item Disabled");
+			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPraySprite);
+			panel.protectionEnabled = false;
 		}
+		panel.updateActionsToolTip();
 	}
 
-	void setSkull(){
+	private void setSkull(){
 		final Player local = client.getLocalPlayer();
 		SkullIcon skullSprite = local.getSkullIcon();
 		if(skullSprite != null){
 			panel.skullStatus.setIcon(SKULL);
-			panel.skullStatus.setToolTipText("Skulled");
+			panel.skull = true;
 		}else{
 			panel.skullStatus.setIcon(UNSKULLED);
-			panel.skullStatus.setToolTipText("Un-Skulled");
+			panel.skull = false;
 		}
+		panel.updateActionsToolTip();
 	}
 
 	private DeathTrackerItem buildLootTrackerItem(int itemId, int quantity)

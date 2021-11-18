@@ -100,6 +100,7 @@ class DeathTrackerPanel extends PluginPanel
     private final JPanel actionsContainer = new JPanel();
     private final JLabel actionsRiskedLabel = new JLabel();
     private final JLabel actionsProtectedLabel = new JLabel();
+    final JPanel actionsInfo = new JPanel();
 
     private final JButton collapseBtn = new JButton();
     private final JLabel protectedItems = new JLabel();
@@ -119,6 +120,9 @@ class DeathTrackerPanel extends PluginPanel
     private String currentView;
     private DeathRecordType currentType;
     private boolean collapseAll = false;
+
+    public boolean pvpWorld = false;
+    public boolean highRiskWorld = false;
     public boolean protectionEnabled = false;
     public boolean skull = false;
 
@@ -146,30 +150,30 @@ class DeathTrackerPanel extends PluginPanel
 
         actionsContainer.setLayout(new FlowLayout(FlowLayout.LEFT));
         actionsContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        actionsContainer.setBorder(new EmptyBorder(5, 5, 5, 10));
+        actionsContainer.setBorder(new EmptyBorder(0, 5, 0, 10));
         actionsContainer.setVisible(true);
 
         prayerStatus.setIconTextGap(0);
         prayerStatus.setBorder(new EmptyBorder(0,0,0,5));
         prayerStatus.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        prayerStatus.setToolTipText("Protect Item Disabled");
+        prayerStatus.setToolTipText(protectionEnabled ? "Protect Item Enabled" : "Protect Item Disabled");
         actionsContainer.add(prayerStatus);
 
         skullStatus.setIconTextGap(0);
         skullStatus.setBorder(new EmptyBorder(0,0,0,5));
         skullStatus.setBackground(ColorScheme.DARKER_GRAY_COLOR);
-        skullStatus.setToolTipText("Unskulled");
+        skullStatus.setToolTipText(skull ? "Skulled" : "Unskulled");
         actionsContainer.add(skullStatus);
 
-        final JPanel actionsInfo = new JPanel();
         actionsInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         actionsInfo.setLayout(new GridLayout(2, 1));
-        actionsInfo.setBorder(new EmptyBorder(0, 0, 0, 0));
         actionsRiskedLabel.setFont(FontManager.getRunescapeSmallFont());
         actionsProtectedLabel.setFont(FontManager.getRunescapeSmallFont());
         actionsInfo.add(actionsProtectedLabel);
         actionsInfo.add(actionsRiskedLabel);
         actionsContainer.add(actionsInfo);
+
+
 
         SwingUtil.removeButtonDecorations(collapseBtn);
         collapseBtn.setIcon(EXPAND_ICON);
@@ -241,19 +245,14 @@ class DeathTrackerPanel extends PluginPanel
                 .count() == boxes.size();
     }
 
-    void loadHeaderIcon(BufferedImage img)
+    void loadHeaderSprite(BufferedImage img)
     {
         overallIcon.setIcon(new ImageIcon(img));
     }
 
-    void loadPrayIcon(BufferedImage img)
+    void loadPraySprite(BufferedImage img)
     {
         prayerStatus.setIcon(new ImageIcon(img));
-    }
-
-    void loadSkullIcon(BufferedImage img)
-    {
-        skullStatus.setIcon(new ImageIcon(img));
     }
 
     void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
@@ -410,9 +409,9 @@ class DeathTrackerPanel extends PluginPanel
         }
         overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths));
         overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost));
-        actionsProtectedLabel.setText("<html><font color=green>Protected Wealth: " + overallProtected + " </font></html>");
-        actionsRiskedLabel.setText("<html><font color=red>Risked Wealth: " + overallRisk + " </font></html>");
-
+        actionsProtectedLabel.setText("<html><font color=#00FF00>Protected Wealth: " + overallProtected + " </font></html>");
+        actionsRiskedLabel.setText("<html><font color=#FF0000>Risked Wealth: " + overallRisk + " </font></html>");
+        updateActionsToolTip();
         updateCollapseText();
     }
 
@@ -451,6 +450,18 @@ class DeathTrackerPanel extends PluginPanel
         logsContainer.removeAll();
         logsContainer.repaint();
 
+    }
+
+    public void updateActionsToolTip()
+    {
+        actionsInfo.setToolTipText(
+                "<html>" +
+                        "<p>PvP World: <font color=#FFFF00>" + pvpWorld + "</font>" +
+                        "<p>High Risk: <font color=#FFFF00>" + highRiskWorld + "</font>" +
+                        "<p>Skull Active: <font color=#FFFF00>" + skull + "</font>" +
+                        "<p>Protect Item: <font color=#FFFF00>" + protectionEnabled + "</font>" +
+                "</html>"
+        );
     }
 
     private static String htmlLabel(String key, long value)
