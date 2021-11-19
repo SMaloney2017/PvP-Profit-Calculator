@@ -121,6 +121,7 @@ class DeathTrackerPanel extends PluginPanel
     private DeathRecordType currentType;
     private boolean collapseAll = false;
 
+    public boolean pvpArea = false;
     public boolean pvpWorld = false;
     public boolean highRiskWorld = false;
     public boolean protectionEnabled = false;
@@ -246,9 +247,46 @@ class DeathTrackerPanel extends PluginPanel
         overallIcon.setIcon(new ImageIcon(img));
     }
 
-    void loadPraySprite(BufferedImage img)
+    void loadPrayerSprite(BufferedImage img)
     {
         prayerStatus.setIcon(new ImageIcon(img));
+    }
+
+    private void changeCollapse()
+    {
+        boolean isAllCollapsed = isAllCollapsed();
+
+        for (DeathTrackerBox box : boxes)
+        {
+            if (isAllCollapsed)
+            {
+                box.expand();
+            }
+            else if (!box.isCollapsed())
+            {
+                box.collapse();
+            }
+        }
+
+        updateCollapseText();
+    }
+
+    public void updateActionsToolTip()
+    {
+        skullStatus.setToolTipText(skull ? "Skulled" : "Unskulled");
+        prayerStatus.setToolTipText(protectionEnabled ? "Protect Item Enabled" : "Protect Item Disabled");
+        actionsContainer.setToolTipText(
+                "<html>" +
+                        "<p>Area Type: <font color=" + (pvpArea ? "#FF0000" : "#00FF00") + ">" + (pvpArea ? "Dangerous" : "Safe") + "</font>" +
+                        "<p>World Risk: <font color=" + (highRiskWorld ? "#FF0000" : "#00FF00") + ">" +  (highRiskWorld ? "High-Risk" : "Normal") + "</font>" +
+                "</html>"
+        );
+    }
+
+    private static String htmlLabel(String key, long value, Color color)
+    {
+        final String valueStr = QuantityFormatter.quantityToStackSize(value);
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(color), key, valueStr);
     }
 
     void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
@@ -277,25 +315,6 @@ class DeathTrackerPanel extends PluginPanel
     {
         aggregateRecords.addAll(records);
         rebuild();
-    }
-
-    private void changeCollapse()
-    {
-        boolean isAllCollapsed = isAllCollapsed();
-
-        for (DeathTrackerBox box : boxes)
-        {
-            if (isAllCollapsed)
-            {
-                box.expand();
-            }
-            else if (!box.isCollapsed())
-            {
-                box.collapse();
-            }
-        }
-
-        updateCollapseText();
     }
 
     private void rebuild()
@@ -403,10 +422,10 @@ class DeathTrackerPanel extends PluginPanel
                 overallDeaths += record.getDeaths();
             }
         }
-        overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths));
-        overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost));
-        actionsProtectedLabel.setText("<html><font color=#00FF00>Protected Wealth: " + overallProtected + " </font></html>");
-        actionsRiskedLabel.setText("<html><font color=#FF0000>Risked Wealth: " + overallRisk + " </font></html>");
+        overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths, ColorScheme.LIGHT_GRAY_COLOR));
+        overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost, ColorScheme.LIGHT_GRAY_COLOR));
+        actionsProtectedLabel.setText(htmlLabel("Protected Wealth: ", overallProtected, ColorScheme.PROGRESS_COMPLETE_COLOR));
+        actionsRiskedLabel.setText(htmlLabel("Risked Wealth: ", overallRisk, ColorScheme.PROGRESS_ERROR_COLOR));
         updateActionsToolTip();
         updateCollapseText();
     }
@@ -446,25 +465,5 @@ class DeathTrackerPanel extends PluginPanel
         logsContainer.removeAll();
         logsContainer.repaint();
 
-    }
-
-    public void updateActionsToolTip()
-    {
-        skullStatus.setToolTipText(skull ? "Skulled" : "Unskulled");
-        prayerStatus.setToolTipText(protectionEnabled ? "Protect Item Enabled" : "Protect Item Disabled");
-        actionsInfo.setToolTipText(
-                "<html>" +
-                        "<p>PvP World: <font color=" + (pvpWorld ? "#00FF00" : "#FF0000") + ">" + pvpWorld + "</font>" +
-                        "<p>High Risk: <font color=" + (highRiskWorld ? "#00FF00" : "#FF0000") + ">" +  highRiskWorld + "</font>" +
-                        "<p>Skull Active: <font color=" + (skull ? "#00FF00" : "#FF0000") + ">" + skull + "</font>" +
-                        "<p>Protect Item: <font color=" + (protectionEnabled ? "#00FF00" : "#FF0000") + ">" +  protectionEnabled + "</font>" +
-                "</html>"
-        );
-    }
-
-    private static String htmlLabel(String key, long value)
-    {
-        final String valueStr = QuantityFormatter.quantityToStackSize(value);
-        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.LIGHT_GRAY_COLOR), key, valueStr);
     }
 }

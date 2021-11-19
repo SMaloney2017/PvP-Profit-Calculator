@@ -49,6 +49,7 @@ import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.EnumSet;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
@@ -61,20 +62,37 @@ import java.util.regex.Pattern;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import javax.inject.Inject;
-import javax.swing.SwingUtilities;
 import javax.swing.ImageIcon;
+import javax.swing.SwingUtilities;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.*;
+import net.runelite.api.ChatMessageType;
+import net.runelite.api.Client;
+import net.runelite.api.GameState;
+import net.runelite.api.InventoryID;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.ItemID;
+import net.runelite.api.MenuAction;
+import net.runelite.api.MessageNode;
+import net.runelite.api.NPC;
+import net.runelite.api.ObjectID;
+import net.runelite.api.Player;
+import net.runelite.api.Skill;
+import net.runelite.api.SkullIcon;
+import net.runelite.api.SpriteID;
+import net.runelite.api.WorldType;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ChatMessage;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.MenuOptionClicked;
-import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.Item;
+import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.Prayer;
 import net.runelite.api.widgets.WidgetID;
 import net.runelite.client.account.AccountSession;
 import net.runelite.client.account.SessionManager;
@@ -86,6 +104,7 @@ import net.runelite.client.chat.QueuedMessage;
 import net.runelite.client.config.ConfigManager;
 import net.runelite.client.eventbus.EventBus;
 import net.runelite.client.eventbus.Subscribe;
+import net.runelite.api.events.ActorDeath;
 import net.runelite.client.events.ClientShutdown;
 import net.runelite.client.events.ConfigChanged;
 import net.runelite.client.events.NpcLootReceived;
@@ -105,12 +124,6 @@ import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.Text;
 import net.runelite.http.api.loottracker.GameItem;
-import net.runelite.http.api.loottracker.LootAggregate;
-import net.runelite.http.api.loottracker.LootRecord;
-import net.runelite.http.api.loottracker.LootRecordType;
-import net.runelite.http.api.loottracker.LootTrackerClient;
-import net.runelite.api.events.GameStateChanged;
-import net.runelite.api.events.GameTick;
 import okhttp3.OkHttpClient;
 import org.apache.commons.text.WordUtils;
 
@@ -157,41 +170,12 @@ public class DeathTrackerPlugin extends Plugin
 	final ImageIcon SKULL = new ImageIcon(skulledIcon);
 	final ImageIcon UNSKULLED = new ImageIcon(unskulledIcon);
 
-	private static Collection<ItemStack> stack(Collection<ItemStack> items)
-	{
-		final List<ItemStack> list = new ArrayList<>();
-
-		for (final ItemStack item : items)
-		{
-			int quantity = 0;
-			for (final ItemStack i : list)
-			{
-				if (i.getId() == item.getId())
-				{
-					quantity = i.getQuantity();
-					list.remove(i);
-					break;
-				}
-			}
-			if (quantity > 0)
-			{
-				list.add(new ItemStack(item.getId(), item.getQuantity() + quantity, item.getLocation()));
-			}
-			else
-			{
-				list.add(item);
-			}
-		}
-
-		return list;
-	}
-
 	@Override
 	protected void startUp()
 	{
 		panel = new DeathTrackerPanel(this, itemManager);
 
-		spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPraySprite);
+		spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
 		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderSprite);
 		panel.skullStatus.setIcon(UNSKULLED);
 
@@ -218,26 +202,77 @@ public class DeathTrackerPlugin extends Plugin
 		setProtectItem();
 	}
 
-	private void setProtectItem(){
+	@Subscribe
+	public void onGameStateChanged(final GameStateChanged event)
+	{
+		if(event.getGameState() == GameState.LOGGED_IN){
+			getWorldType();
+		}
+	}
+
+	@Subscribe
+	public void onItemContainerChanged(ItemContainerChanged event)
+	{
+		ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+		ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
+	}
+
+	@Subscribe
+	public void onActorDeath(ActorDeath actorDeath)
+	{
+		/* Process Death Here */
+	}
+
+	private void processRisk(ItemContainer inventoryContainer)
+	{
+		Item inventoryItems[] = inventoryContainer.getItems();
+	}
+
+	private void setProtectItem()
+	{
 		if(client.isPrayerActive(Prayer.PROTECT_ITEM)){
-			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPraySprite);
+			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPrayerSprite);
 			panel.protectionEnabled = true;
 		}else{
-			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPraySprite);
+			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
 			panel.protectionEnabled = false;
 		}
 		panel.updateActionsToolTip();
 	}
 
-	private void setSkull(){
+	private void setSkull()
+	{
 		final Player local = client.getLocalPlayer();
+
 		SkullIcon skullSprite = local.getSkullIcon();
-		if(skullSprite != null){
-			panel.skullStatus.setIcon(SKULL);
-			panel.skull = true;
-		}else{
+		if(skullSprite == null | skullSprite == SkullIcon.SKULL_FIGHT_PIT){
 			panel.skullStatus.setIcon(UNSKULLED);
 			panel.skull = false;
+		}else{
+			panel.skullStatus.setIcon(SKULL);
+			panel.skull = true;
+		}
+		panel.updateActionsToolTip();
+	}
+
+	private void getWorldType()
+	{
+		panel.pvpArea = false;
+		panel.highRiskWorld = false;
+
+		EnumSet<WorldType> world = client.getWorldType();
+		for (WorldType v : world)
+		{
+			switch (v) {
+				case PVP:
+					panel.pvpWorld = true;
+					break;
+				case HIGH_RISK:
+					panel.highRiskWorld = true;
+					break;
+				default:
+					break;
+			}
 		}
 		panel.updateActionsToolTip();
 	}
