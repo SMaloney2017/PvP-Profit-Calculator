@@ -30,7 +30,13 @@ package com.deathtracker;
 
 import com.google.common.annotations.VisibleForTesting;
 import java.awt.image.BufferedImage;
-import java.util.*;
+import java.util.List;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.ArrayList;
+import java.util.Comparator;
+import java.util.EnumSet;
+import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
@@ -39,7 +45,17 @@ import javax.swing.ImageIcon;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.*;
+import net.runelite.api.Client;
+import net.runelite.api.SpriteID;
+import net.runelite.api.GameState;
+import net.runelite.api.Item;
+import net.runelite.api.ItemID;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Varbits;
+import net.runelite.api.WorldType;
+import net.runelite.api.SkullIcon;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.VarbitChanged;
@@ -50,20 +66,19 @@ import net.runelite.client.eventbus.Subscribe;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.ItemMapping;
-import net.runelite.client.game.ItemStack;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.http.api.loottracker.GameItem;
+import com.deathtracker.risk.AlwaysLostItem;
 import com.deathtracker.risk.BrokenOnDeathItem;
 import com.deathtracker.risk.DynamicPriceItem;
 import com.deathtracker.risk.FixedPriceItem;
+import com.deathtracker.risk.ItemStack;
 import com.deathtracker.risk.Pets;
-import com.deathtracker.risk.AlwaysLostItem;
 import com.deathtracker.risk.LostIfNotProtected;
 
 @PluginDescriptor(
@@ -79,8 +94,8 @@ public class DeathTrackerPlugin extends Plugin {
 	@Getter
 	@VisibleForTesting
 	public static class DeathItems {
-		private final List<com.deathtracker.risk.ItemStack> keptItems;
-		private final List<com.deathtracker.risk.ItemStack> lostItems;
+		private final List<ItemStack> keptItems;
+		private final List<ItemStack> lostItems;
 		private final boolean hasAlwaysLost;
 	}
 
@@ -281,8 +296,8 @@ public class DeathTrackerPlugin extends Plugin {
 		boolean hasAlwaysLost = false;
 		int keepCount = getDefaultItemsKept();
 
-		final List<com.deathtracker.risk.ItemStack> keptItems = new ArrayList<>();
-		final List<com.deathtracker.risk.ItemStack> lostItems = new ArrayList<>();
+		final List<ItemStack> keptItems = new ArrayList<>();
+		final List<ItemStack> lostItems = new ArrayList<>();
 
 		for (final Item i : items)
 		{
@@ -295,7 +310,7 @@ public class DeathTrackerPlugin extends Plugin {
 
 			if (id == ItemID.OLD_SCHOOL_BOND || id == ItemID.OLD_SCHOOL_BOND_UNTRADEABLE)
 			{
-				keptItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+				keptItems.add(new ItemStack(id, qty));
 				continue;
 			}
 
@@ -304,7 +319,7 @@ public class DeathTrackerPlugin extends Plugin {
 			{
 				hasAlwaysLost = true;
 				hasClueBox = hasClueBox || id == ItemID.CLUE_BOX;
-				lostItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+				lostItems.add(new ItemStack(id, qty));
 				continue;
 			}
 
@@ -312,13 +327,13 @@ public class DeathTrackerPlugin extends Plugin {
 			{
 				if (i.getQuantity() > keepCount)
 				{
-					keptItems.add(new com.deathtracker.risk.ItemStack(id, keepCount));
+					keptItems.add(new ItemStack(id, keepCount));
 					qty -= keepCount;
 					keepCount = 0;
 				}
 				else
 				{
-					keptItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+					keptItems.add(new ItemStack(id, qty));
 					keepCount -= qty;
 					continue;
 				}
@@ -329,18 +344,18 @@ public class DeathTrackerPlugin extends Plugin {
 					&& !isTradeable(itemManager.getItemComposition(id)) && wildyLevel <= DEEP_WILDY
 					&& (wildyLevel <= 0 || BrokenOnDeathItem.isBrokenOnDeath(i.getId())))
 			{
-				keptItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+				keptItems.add(new ItemStack(id, qty));
 			}
 			else
 			{
-				lostItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+				lostItems.add(new ItemStack(id, qty));
 			}
 		}
 
 		if (hasClueBox)
 		{
 			boolean alreadyProtectingClue = false;
-			for (final com.deathtracker.risk.ItemStack item : keptItems)
+			for (final ItemStack item : keptItems)
 			{
 				if (isClueBoxable(item.getId()))
 				{
@@ -367,9 +382,9 @@ public class DeathTrackerPlugin extends Plugin {
 					{
 						if (boxableItem.getId() == clueId)
 						{
-							if (boxableItem.getQty() > 1)
+							if (boxableItem.getQuantity() > 1)
 							{
-								boxableItem.setQty(boxableItem.getQty() - 1);
+								boxableItem.setQuantity(boxableItem.getQuantity() - 1);
 								keptItems.add(new com.deathtracker.risk.ItemStack(clueId, 1));
 							}
 							else
@@ -452,7 +467,7 @@ public class DeathTrackerPlugin extends Plugin {
 		}
 	}
 
-	private DeathTrackerItem buildLootTrackerItem(int itemId, int quantity)
+	private DeathTrackerItem buildDeathTrackerItem(int itemId, int quantity)
 	{
 		final ItemComposition itemComposition = itemManager.getItemComposition(itemId);
 		final int gePrice = itemManager.getItemPrice(itemId);
@@ -468,7 +483,7 @@ public class DeathTrackerPlugin extends Plugin {
 	private DeathTrackerItem[] buildEntries(final Collection<ItemStack> itemStacks)
 	{
 		return itemStacks.stream()
-				.map(itemStack -> buildLootTrackerItem(itemStack.getId(), itemStack.getQuantity()))
+				.map(itemStack -> buildDeathTrackerItem(itemStack.getId(), itemStack.getQuantity()))
 				.toArray(DeathTrackerItem[]::new);
 	}
 

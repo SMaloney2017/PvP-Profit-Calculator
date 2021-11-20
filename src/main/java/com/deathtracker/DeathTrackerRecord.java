@@ -28,7 +28,6 @@ package com.deathtracker;
 
 import lombok.NonNull;
 import lombok.Value;
-import com.deathtracker.DeathRecordType;
 
 @Value
 class DeathTrackerRecord

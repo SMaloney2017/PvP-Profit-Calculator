@@ -33,5 +33,5 @@ import lombok.Data;
 public class ItemStack
 {
     private int id;
-    private int qty;
+    private int quantity;
 }
