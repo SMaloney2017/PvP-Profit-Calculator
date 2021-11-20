@@ -78,6 +78,8 @@ class DeathTrackerPanel extends PluginPanel
     @Inject
     private SpriteManager spriteManager;
 
+    private static final BufferedImage expandedImg;
+    private static final BufferedImage collapseImg;
     private static final ImageIcon COLLAPSE_ICON;
     private static final ImageIcon EXPAND_ICON;
 
@@ -103,7 +105,6 @@ class DeathTrackerPanel extends PluginPanel
     final JPanel actionsInfo = new JPanel();
 
     private final JButton collapseBtn = new JButton();
-    private final JLabel protectedItems = new JLabel();
     final JLabel prayerStatus = new JLabel();
     final JLabel skullStatus = new JLabel();
 
@@ -121,16 +122,9 @@ class DeathTrackerPanel extends PluginPanel
     private DeathRecordType currentType;
     private boolean collapseAll = false;
 
-    public boolean pvpArea = false;
-    public boolean pvpWorld = false;
-    public boolean highRiskWorld = false;
-    public boolean protectionEnabled = false;
-    public boolean skull = false;
-
     static {
-        final BufferedImage collapseImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "collapsed.png");
-        final BufferedImage expandedImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "expanded.png");
-
+        collapseImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "collapsed.png");
+        expandedImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "expanded.png");
         COLLAPSE_ICON = new ImageIcon(collapseImg);
         EXPAND_ICON = new ImageIcon(expandedImg);
     }
@@ -242,16 +236,6 @@ class DeathTrackerPanel extends PluginPanel
                 .count() == boxes.size();
     }
 
-    void loadHeaderSprite(BufferedImage img)
-    {
-        overallIcon.setIcon(new ImageIcon(img));
-    }
-
-    void loadPrayerSprite(BufferedImage img)
-    {
-        prayerStatus.setIcon(new ImageIcon(img));
-    }
-
     private void changeCollapse()
     {
         boolean isAllCollapsed = isAllCollapsed();
@@ -271,14 +255,23 @@ class DeathTrackerPanel extends PluginPanel
         updateCollapseText();
     }
 
+    void loadHeaderSprite(BufferedImage img)
+    {
+        overallIcon.setIcon(new ImageIcon(img));
+    }
+
+    void loadPrayerSprite(BufferedImage img)
+    {
+        prayerStatus.setIcon(new ImageIcon(img));
+    }
+
     public void updateActionsToolTip()
     {
-        skullStatus.setToolTipText(skull ? "Skulled" : "Unskulled");
-        prayerStatus.setToolTipText(protectionEnabled ? "Protect Item Enabled" : "Protect Item Disabled");
+        skullStatus.setToolTipText(DeathTrackerPlugin.isSkulled ? "Skulled" : "Unskulled");
+        prayerStatus.setToolTipText(DeathTrackerPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
         actionsContainer.setToolTipText(
                 "<html>" +
-                        "<p>Area Type: <font color=" + (pvpArea ? "#FF0000" : "#00FF00") + ">" + (pvpArea ? "Dangerous" : "Safe") + "</font>" +
-                        "<p>World Risk: <font color=" + (highRiskWorld ? "#FF0000" : "#00FF00") + ">" +  (highRiskWorld ? "High-Risk" : "Normal") + "</font>" +
+                        "<p>World Type: <font color=" + (DeathTrackerPlugin.pvpWorld ? "#FF0000" : "#00FF00") + ">" +  (DeathTrackerPlugin.pvpWorld ? (DeathTrackerPlugin.highRiskWorld ? "High-Risk PvP" : "PvP") : (DeathTrackerPlugin.highRiskWorld ? "High-Risk" : "Normal")) + "</font>" +
                 "</html>"
         );
     }

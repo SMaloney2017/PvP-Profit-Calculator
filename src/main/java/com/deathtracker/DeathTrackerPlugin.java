@@ -1,7 +1,7 @@
-
 /*
  * Copyright (c) 2018, Psikoi <https://github.com/psikoi>
  * Copyright (c) 2018, Adam <Adam@sigterm.info>
+ * Copyright (c) 2018, TheStonedTurtle <https://github.com/TheStonedTurtle>
  * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
@@ -29,115 +29,60 @@
 package com.deathtracker;
 
 import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.ImmutableSet;
-
-import com.google.common.annotations.VisibleForTesting;
-import com.google.common.collect.HashMultiset;
-import com.google.common.collect.ImmutableMap;
-import com.google.common.collect.ImmutableMultimap;
-import com.google.common.collect.ImmutableSet;
-import com.google.common.collect.Multimap;
-import com.google.common.collect.Multiset;
-import com.google.common.collect.Multisets;
-import com.google.inject.Provides;
 import java.awt.image.BufferedImage;
-import java.io.IOException;
-import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.Arrays;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.EnumSet;
-import java.util.LinkedHashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.Future;
-import java.util.concurrent.ScheduledExecutorService;
+import java.util.*;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.stream.Collectors;
-import javax.annotation.Nullable;
 import javax.inject.Inject;
 import javax.swing.ImageIcon;
-import javax.swing.SwingUtilities;
-import lombok.AccessLevel;
+import lombok.AllArgsConstructor;
 import lombok.Getter;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.ChatMessageType;
-import net.runelite.api.Client;
-import net.runelite.api.GameState;
-import net.runelite.api.InventoryID;
-import net.runelite.api.ItemComposition;
-import net.runelite.api.ItemContainer;
-import net.runelite.api.ItemID;
-import net.runelite.api.MenuAction;
-import net.runelite.api.MessageNode;
-import net.runelite.api.NPC;
-import net.runelite.api.ObjectID;
-import net.runelite.api.Player;
-import net.runelite.api.Skill;
-import net.runelite.api.SkullIcon;
-import net.runelite.api.SpriteID;
-import net.runelite.api.WorldType;
-import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.events.ChatMessage;
+import net.runelite.api.*;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.ItemContainerChanged;
-import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.Item;
-import net.runelite.api.events.WidgetLoaded;
-import net.runelite.api.Prayer;
-import net.runelite.api.widgets.WidgetID;
-import net.runelite.client.account.AccountSession;
-import net.runelite.client.account.SessionManager;
-import net.runelite.client.callback.ClientThread;
-import net.runelite.client.chat.ChatColorType;
-import net.runelite.client.chat.ChatMessageBuilder;
-import net.runelite.client.chat.ChatMessageManager;
-import net.runelite.client.chat.QueuedMessage;
-import net.runelite.client.config.ConfigManager;
-import net.runelite.client.eventbus.EventBus;
+import net.runelite.api.vars.AccountType;
+import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.api.events.ActorDeath;
-import net.runelite.client.events.ClientShutdown;
-import net.runelite.client.events.ConfigChanged;
-import net.runelite.client.events.NpcLootReceived;
-import net.runelite.client.events.PlayerLootReceived;
-import net.runelite.client.events.SessionClose;
-import net.runelite.client.events.SessionOpen;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemMapping;
 import net.runelite.client.game.ItemStack;
-import net.runelite.client.game.LootManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
-import net.runelite.client.task.Schedule;
+import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
-import net.runelite.client.util.QuantityFormatter;
-import net.runelite.client.util.Text;
 import net.runelite.http.api.loottracker.GameItem;
-import okhttp3.OkHttpClient;
-import org.apache.commons.text.WordUtils;
+import com.deathtracker.risk.BrokenOnDeathItem;
+import com.deathtracker.risk.DynamicPriceItem;
+import com.deathtracker.risk.FixedPriceItem;
+import com.deathtracker.risk.Pets;
+import com.deathtracker.risk.AlwaysLostItem;
+import com.deathtracker.risk.LostIfNotProtected;
 
 @PluginDescriptor(
-	name = "Death-Tracker",
+	name = "Death Tracker",
 	description = "Tracks [cost of] items lost to deaths during session",
 	enabledByDefault = false
 )
 
 @Slf4j
-public class DeathTrackerPlugin extends Plugin
-{
-	private static final Set<Integer> LAST_MAN_STANDING_REGIONS = ImmutableSet.of(13658, 13659, 13660, 13914, 13915, 13916, 13918, 13919, 13920, 14174, 14175, 14176, 14430, 14431, 14432);
-	private static final Set<Integer> SOUL_WARS_REGIONS = ImmutableSet.of(8493, 8749, 9005);
+public class DeathTrackerPlugin extends Plugin {
+
+	@AllArgsConstructor
+	@Getter
+	@VisibleForTesting
+	public static class DeathItems {
+		private final List<com.deathtracker.risk.ItemStack> keptItems;
+		private final List<com.deathtracker.risk.ItemStack> lostItems;
+		private final boolean hasAlwaysLost;
+	}
 
 	@Inject
 	private Client client;
@@ -151,34 +96,42 @@ public class DeathTrackerPlugin extends Plugin
 	@Inject
 	private SpriteManager spriteManager;
 
-	@Inject
-	private ChatMessageManager chatMessageManager;
-
 	private DeathTrackerPanel panel;
 	private NavigationButton navButton;
 
-	@VisibleForTesting
-	String eventType;
-	@VisibleForTesting
-	DeathRecordType deathRecordType;
-	private Object metadata;
+	private static final ImageIcon SKULLED;
+	private static final ImageIcon UNSKULLED;
+	private static final BufferedImage unskulledIcon;
+	private static final BufferedImage skulledIcon;
+	private static final BufferedImage navIcon;
 
-	final BufferedImage unskulledIcon = ImageUtil.loadImageResource(getClass(), "unskulled.png");
-	final BufferedImage skulledIcon = ImageUtil.loadImageResource(getClass(), "skull.png");
-	final BufferedImage navIcon = ImageUtil.loadImageResource(getClass(), "icon.png");
+	private static final int DEEP_WILDY = 20;
+	private static final Pattern WILDERNESS_LEVEL_PATTERN = Pattern.compile("^Level: (\\d+).*");
 
-	final ImageIcon SKULL = new ImageIcon(skulledIcon);
-	final ImageIcon UNSKULLED = new ImageIcon(unskulledIcon);
+	public static boolean isSkulled = false;
+	public static boolean protectingItem = false;
+	public static boolean pvpWorld = false;
+	public static boolean pvpSafeZone = false;
+	public static boolean highRiskWorld = false;
+	public static int wildyLevel = -1;
+
+	static {
+		unskulledIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "unskulled.png");
+		skulledIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "skull.png");
+		navIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "icon.png");
+		SKULLED = new ImageIcon(skulledIcon);
+		UNSKULLED = new ImageIcon(unskulledIcon);
+	}
 
 	@Override
 	protected void startUp()
 	{
+
 		panel = new DeathTrackerPanel(this, itemManager);
+		panel.skullStatus.setIcon(UNSKULLED);
 
 		spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
 		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderSprite);
-		panel.skullStatus.setIcon(UNSKULLED);
-
 		navButton = NavigationButton.builder()
 				.tooltip("Death Tracker")
 				.icon(navIcon)
@@ -198,15 +151,15 @@ public class DeathTrackerPlugin extends Plugin
 	@Subscribe
 	public void onVarbitChanged(VarbitChanged event)
 	{
-		setSkull();
-		setProtectItem();
+		syncSettings();
 	}
 
 	@Subscribe
 	public void onGameStateChanged(final GameStateChanged event)
 	{
-		if(event.getGameState() == GameState.LOGGED_IN){
-			getWorldType();
+		if (event.getGameState() == GameState.LOGGED_IN)
+		{
+			syncSettings();
 		}
 	}
 
@@ -215,6 +168,7 @@ public class DeathTrackerPlugin extends Plugin
 	{
 		ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
 		ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
+		processRisk(inventory, equipment);
 	}
 
 	@Subscribe
@@ -223,58 +177,279 @@ public class DeathTrackerPlugin extends Plugin
 		/* Process Death Here */
 	}
 
-	private void processRisk(ItemContainer inventoryContainer)
+	private void processRisk(ItemContainer inventoryContainer, ItemContainer gearContainer)
 	{
 		Item inventoryItems[] = inventoryContainer.getItems();
 	}
 
-	private void setProtectItem()
+	public void syncSettings()
 	{
-		if(client.isPrayerActive(Prayer.PROTECT_ITEM)){
-			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPrayerSprite);
-			panel.protectionEnabled = true;
-		}else{
-			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
-			panel.protectionEnabled = false;
-		}
-		panel.updateActionsToolTip();
-	}
-
-	private void setSkull()
-	{
-		final Player local = client.getLocalPlayer();
-
-		SkullIcon skullSprite = local.getSkullIcon();
-		if(skullSprite == null | skullSprite == SkullIcon.SKULL_FIGHT_PIT){
+		final SkullIcon s = client.getLocalPlayer().getSkullIcon();
+		isSkulled = s == SkullIcon.SKULL || isUltimateIronman();
+		if(!isSkulled) {
 			panel.skullStatus.setIcon(UNSKULLED);
-			panel.skull = false;
-		}else{
-			panel.skullStatus.setIcon(SKULL);
-			panel.skull = true;
+		} else {
+			panel.skullStatus.setIcon(SKULLED);
 		}
+		protectingItem = isProtectingItem();
+		if(!protectingItem) {
+			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
+		} else {
+			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPrayerSprite);
+		}
+		syncWildernessLevel();
+		highRiskWorld = isProtectItemAllowed();
+		pvpSafeZone = isInPvPSafeZone();
 		panel.updateActionsToolTip();
 	}
 
-	private void getWorldType()
+	private void syncWildernessLevel()
 	{
-		panel.pvpArea = false;
-		panel.highRiskWorld = false;
-
-		EnumSet<WorldType> world = client.getWorldType();
-		for (WorldType v : world)
+		if (client.getVar(Varbits.IN_WILDERNESS) != 1)
 		{
-			switch (v) {
-				case PVP:
-					panel.pvpWorld = true;
-					break;
-				case HIGH_RISK:
-					panel.highRiskWorld = true;
-					break;
-				default:
-					break;
+			pvpWorld = isInPvpWorld();
+			if (pvpWorld && !isInPvPSafeZone())
+			{
+				wildyLevel = 1;
+				return;
+			}
+			wildyLevel = -1;
+			return;
+		}
+
+		final Widget wildernessLevelWidget = client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL);
+		if (wildernessLevelWidget == null)
+		{
+			wildyLevel = -1;
+			return;
+		}
+
+		final String wildernessLevelText = wildernessLevelWidget.getText();
+		final Matcher m = WILDERNESS_LEVEL_PATTERN.matcher(wildernessLevelText);
+		if (!m.matches())
+		{
+			wildyLevel = -1;
+			return;
+		}
+
+		wildyLevel = Integer.parseInt(m.group(1));
+	}
+
+	public boolean isInPvpWorld()
+	{
+		final EnumSet<WorldType> world = client.getWorldType();
+		return world.contains(WorldType.PVP);
+	}
+
+	private boolean isProtectItemAllowed()
+	{
+		return client.getWorldType().contains(WorldType.HIGH_RISK)
+				|| isUltimateIronman();
+	}
+
+	private boolean isProtectingItem()
+	{
+		return client.getVar(Varbits.PRAYER_PROTECT_ITEM) == 1;
+	}
+
+	private boolean isInPvPSafeZone()
+	{
+		final Widget w = client.getWidget(WidgetInfo.PVP_WORLD_SAFE_ZONE);
+		return w != null && !w.isHidden();
+	}
+
+	private boolean isUltimateIronman()
+	{
+		return client.getAccountType() == AccountType.ULTIMATE_IRONMAN;
+	}
+
+	private int getDefaultItemsKept()
+	{
+		final int count = isSkulled ? 0 : 3;
+		return count + (protectingItem ? 1 : 0);
+	}
+
+	DeathItems calculateKeptLostItems(final Item[] inv, final Item[] equip)
+	{
+		final List<Item> items = new ArrayList<>();
+		Collections.addAll(items, inv);
+		Collections.addAll(items, equip);
+
+		items.sort(Comparator.comparing(this::getDeathPrice).reversed());
+
+		boolean hasClueBox = false;
+		boolean hasAlwaysLost = false;
+		int keepCount = getDefaultItemsKept();
+
+		final List<com.deathtracker.risk.ItemStack> keptItems = new ArrayList<>();
+		final List<com.deathtracker.risk.ItemStack> lostItems = new ArrayList<>();
+
+		for (final Item i : items)
+		{
+			final int id = i.getId();
+			int qty = i.getQuantity();
+			if (id == -1)
+			{
+				continue;
+			}
+
+			if (id == ItemID.OLD_SCHOOL_BOND || id == ItemID.OLD_SCHOOL_BOND_UNTRADEABLE)
+			{
+				keptItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+				continue;
+			}
+
+			final AlwaysLostItem alwaysLostItem = AlwaysLostItem.getByItemID(id);
+			if (alwaysLostItem != null && (!alwaysLostItem.isKeptOutsideOfWilderness() || wildyLevel > 0))
+			{
+				hasAlwaysLost = true;
+				hasClueBox = hasClueBox || id == ItemID.CLUE_BOX;
+				lostItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+				continue;
+			}
+
+			if (keepCount > 0)
+			{
+				if (i.getQuantity() > keepCount)
+				{
+					keptItems.add(new com.deathtracker.risk.ItemStack(id, keepCount));
+					qty -= keepCount;
+					keepCount = 0;
+				}
+				else
+				{
+					keptItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+					keepCount -= qty;
+					continue;
+				}
+			}
+
+			if (!Pets.isPet(id)
+					&& !LostIfNotProtected.isLostIfNotProtected(id)
+					&& !isTradeable(itemManager.getItemComposition(id)) && wildyLevel <= DEEP_WILDY
+					&& (wildyLevel <= 0 || BrokenOnDeathItem.isBrokenOnDeath(i.getId())))
+			{
+				keptItems.add(new com.deathtracker.risk.ItemStack(id, qty));
+			}
+			else
+			{
+				lostItems.add(new com.deathtracker.risk.ItemStack(id, qty));
 			}
 		}
-		panel.updateActionsToolTip();
+
+		if (hasClueBox)
+		{
+			boolean alreadyProtectingClue = false;
+			for (final com.deathtracker.risk.ItemStack item : keptItems)
+			{
+				if (isClueBoxable(item.getId()))
+				{
+					alreadyProtectingClue = true;
+					break;
+				}
+			}
+
+			if (!alreadyProtectingClue)
+			{
+				int clueId = -1;
+				for (final Item i : inv)
+				{
+					final int id = i.getId();
+					if (id != -1 && isClueBoxable(id))
+					{
+						clueId = id;
+					}
+				}
+
+				if (clueId != -1)
+				{
+					for (final com.deathtracker.risk.ItemStack boxableItem : lostItems)
+					{
+						if (boxableItem.getId() == clueId)
+						{
+							if (boxableItem.getQty() > 1)
+							{
+								boxableItem.setQty(boxableItem.getQty() - 1);
+								keptItems.add(new com.deathtracker.risk.ItemStack(clueId, 1));
+							}
+							else
+							{
+								lostItems.remove(boxableItem);
+								keptItems.add(boxableItem);
+							}
+							break;
+						}
+					}
+				}
+			}
+		}
+
+		return new DeathItems(keptItems, lostItems, hasAlwaysLost);
+	}
+
+	boolean isClueBoxable(final int itemID)
+	{
+		final String name = itemManager.getItemComposition(itemID).getName();
+		return name.contains("Clue scroll (") || name.contains("Reward casket (");
+	}
+
+	int getDeathPrice(Item item)
+	{
+
+		int itemId = item.getId();
+
+		int canonicalizedItemId = itemManager.canonicalize(itemId);
+		int exchangePrice = 0;
+
+		final DynamicPriceItem dynamicPrice = DynamicPriceItem.find(canonicalizedItemId);
+		if (dynamicPrice != null)
+		{
+			final int basePrice = itemManager.getItemPrice(dynamicPrice.getChargedId());
+			return dynamicPrice.calculateDeathPrice(basePrice);
+		}
+
+		final FixedPriceItem fixedPrice = FixedPriceItem.find(canonicalizedItemId);
+		if (fixedPrice != null && fixedPrice.getBaseId() != -1)
+		{
+			exchangePrice = itemManager.getItemPrice(fixedPrice.getBaseId());
+		}
+		else
+		{
+			for (final ItemMapping mappedID : ItemMapping.map(canonicalizedItemId))
+			{
+				exchangePrice += itemManager.getItemPrice(mappedID.getTradeableItem());
+			}
+		}
+
+		if (exchangePrice == 0)
+		{
+			final ItemComposition c1 = itemManager.getItemComposition(canonicalizedItemId);
+			exchangePrice = c1.getPrice();
+		}
+
+		exchangePrice += fixedPrice == null ? 0 : fixedPrice.getOffset();
+
+		return exchangePrice;
+	}
+
+	private static boolean isTradeable(final ItemComposition c)
+	{
+		if (c.getNote() != -1
+				|| c.getLinkedNoteId() != -1
+				|| c.isTradeable())
+		{
+			return true;
+		}
+
+		final int id = c.getId();
+		switch (id)
+		{
+			case ItemID.COINS_995:
+			case ItemID.PLATINUM_TOKEN:
+				return true;
+			default:
+				return false;
+		}
 	}
 
 	private DeathTrackerItem buildLootTrackerItem(int itemId, int quantity)
@@ -317,17 +492,5 @@ public class DeathTrackerPlugin extends Plugin
 		}
 
 		return false;
-	}
-
-	private long getTotalPrice(Collection<ItemStack> items)
-	{
-		long totalPrice = 0;
-
-		for (final ItemStack itemStack : items)
-		{
-			totalPrice += (long) itemManager.getItemPrice(itemStack.getId()) * itemStack.getQuantity();
-		}
-
-		return totalPrice;
 	}
 }
