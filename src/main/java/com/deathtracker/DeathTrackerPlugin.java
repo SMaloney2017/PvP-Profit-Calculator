@@ -128,7 +128,7 @@ public class DeathTrackerPlugin extends Plugin {
 	public static boolean pvpWorld = false;
 	public static boolean pvpSafeZone = false;
 	public static boolean highRiskWorld = false;
-	public static int wildyLevel = -1;
+	private static int wildyLevel = -1;
 
 	static {
 		unskulledIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "unskulled.png");
@@ -183,7 +183,6 @@ public class DeathTrackerPlugin extends Plugin {
 	{
 		ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
 		ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
-		processRisk(inventory, equipment);
 	}
 
 	@Subscribe
@@ -192,9 +191,9 @@ public class DeathTrackerPlugin extends Plugin {
 		/* Process Death Here */
 	}
 
-	private void processRisk(ItemContainer inventoryContainer, ItemContainer gearContainer)
+	private void processRisk()
 	{
-		Item inventoryItems[] = inventoryContainer.getItems();
+		/* Process Risk Here */
 	}
 
 	public void syncSettings()
