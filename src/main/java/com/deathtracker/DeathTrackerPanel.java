@@ -37,6 +37,7 @@ import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.function.Predicate;
 import java.util.List;
 import javax.inject.Inject;
 import javax.swing.BorderFactory;
@@ -51,8 +52,8 @@ import javax.swing.JPopupMenu;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicButtonUI;
 import net.runelite.api.Item;
+import net.runelite.api.ItemID;
 import net.runelite.api.ItemComposition;
-import net.runelite.api.ParamHolder;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
@@ -77,6 +78,8 @@ class DeathTrackerPanel extends PluginPanel
 
     private static final String HTML_LABEL_TEMPLATE =
             "<html><body style='color:%s'>%s<span style='color:white'>%s</span></body></html>";
+    private static final String HTML_WORLD_TEMPLATE =
+            "<html><body style='color:%s'>%s<span style='color:%s'>%s</span></body></html>";
 
     /* Display errorPanel when there are no deaths */
     private final PluginErrorPanel errorPanel = new PluginErrorPanel();
@@ -86,16 +89,14 @@ class DeathTrackerPanel extends PluginPanel
 
     /* Session data */
     private final JPanel overallPanel = new JPanel();
-    private final JPanel overallInfo = new JPanel();
     private final JLabel overallDeathsLabel = new JLabel();
-    private final JLabel overallCostLabel = new JLabel();
-    private final JLabel overallIcon = new JLabel();
+    public final JLabel overallCostLabel = new JLabel();
+    public final JLabel overallIcon = new JLabel();
 
     /* Details and actions */
     private final JPanel actionsContainer = new JPanel();
-    private final JLabel actionsRiskedLabel = new JLabel();
-    private final JLabel actionsProtectedLabel = new JLabel();
-    private final JPanel actionsInfo = new JPanel();
+    private final JLabel actionsWorldRiskLabel = new JLabel();
+    private final JLabel actionsWorldLabel = new JLabel();
     private final JButton collapseBtn = new JButton();
     private final JLabel prayerStatus = new JLabel();
     public final JLabel skullStatus = new JLabel();
@@ -108,7 +109,6 @@ class DeathTrackerPanel extends PluginPanel
     private final List<DeathTrackerBox> boxes = new ArrayList<>();
 
     private final ItemManager itemManager;
-    private final DeathTrackerPlugin plugin;
 
     private String currentView;
     private DeathRecordType currentType;
@@ -123,9 +123,7 @@ class DeathTrackerPanel extends PluginPanel
 
     DeathTrackerPanel(final DeathTrackerPlugin plugin, final ItemManager itemManager)
     {
-
         this.itemManager = itemManager;
-        this.plugin = plugin;
 
         setBorder(new EmptyBorder(6, 6, 6, 6));
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -150,17 +148,18 @@ class DeathTrackerPanel extends PluginPanel
         skullStatus.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         actionsContainer.add(skullStatus);
 
+        JPanel actionsInfo = new JPanel();
         actionsInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         actionsInfo.setLayout(new GridLayout(2, 1));
-        actionsRiskedLabel.setFont(FontManager.getRunescapeSmallFont());
-        actionsProtectedLabel.setFont(FontManager.getRunescapeSmallFont());
-        actionsInfo.add(actionsProtectedLabel);
-        actionsInfo.add(actionsRiskedLabel);
+        actionsWorldLabel.setFont(FontManager.getRunescapeSmallFont());
+        actionsWorldRiskLabel.setFont(FontManager.getRunescapeSmallFont());
+        actionsInfo.add(actionsWorldLabel);
+        actionsInfo.add(actionsWorldRiskLabel);
         actionsContainer.add(actionsInfo);
 
         SwingUtil.removeButtonDecorations(collapseBtn);
         collapseBtn.setIcon(EXPAND_ICON);
-        collapseBtn.setToolTipText("Toggle View");
+        collapseBtn.setToolTipText("Toggle Collapse");
         collapseBtn.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         collapseBtn.setUI(new BasicButtonUI());
         collapseBtn.addMouseListener(new MouseAdapter()
@@ -182,6 +181,7 @@ class DeathTrackerPanel extends PluginPanel
         overallPanel.setLayout(new BorderLayout());
         overallPanel.setVisible(true);
 
+        JPanel overallInfo = new JPanel();
         overallInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         overallInfo.setLayout(new GridLayout(2, 1));
         overallInfo.setBorder(new EmptyBorder(2, 10, 2, 0));
@@ -260,17 +260,19 @@ class DeathTrackerPanel extends PluginPanel
     {
         skullStatus.setToolTipText((DeathTrackerPlugin.isSkulled || (DeathTrackerPlugin.wildyLevel > 1 && DeathTrackerPlugin.highRiskWorld) || (DeathTrackerPlugin.highRiskWorld && DeathTrackerPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
         prayerStatus.setToolTipText(DeathTrackerPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
-        actionsContainer.setToolTipText(
-                "<html>" +
-                        "<p>World Type: <font color=" + (DeathTrackerPlugin.pvpWorld ? "#FF0000" : "#00FF00") + ">" +  (DeathTrackerPlugin.pvpWorld ? (DeathTrackerPlugin.highRiskWorld ? "High-Risk PvP" : "PvP") : (DeathTrackerPlugin.highRiskWorld ? "High-Risk" : "Normal")) + "</font>" +
-                "</html>"
-        );
+        actionsWorldLabel.setText(htmlLabel("World Type: ", (DeathTrackerPlugin.pvpWorld ? "PvP":"Normal"), (DeathTrackerPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
+        actionsWorldRiskLabel.setText(htmlLabel("Risk Type: ", (DeathTrackerPlugin.highRiskWorld ? "High Risk":"Regular"), (DeathTrackerPlugin.highRiskWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
     }
 
-    private static String htmlLabel(String key, long value, Color color)
+    private static String htmlLabel(String key, long value)
     {
         final String valueStr = QuantityFormatter.quantityToStackSize(value);
-        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(color), key, valueStr);
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, valueStr);
+    }
+
+    private static String htmlLabel(String key, String text, Color valueColor)
+    {
+        return String.format(HTML_WORLD_TEMPLATE, ColorUtil.toHexColor(ColorScheme.BRAND_ORANGE) ,key, ColorUtil.toHexColor(valueColor), text);
     }
 
     void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
@@ -383,8 +385,6 @@ class DeathTrackerPanel extends PluginPanel
     {
         long overallDeaths = 0;
         long overallCost = 0;
-        long overallRisk = 0;
-        long overallProtected = 0;
 
         Iterable<DeathTrackerRecord> records = concat(aggregateRecords, sessionRecords);
 
@@ -406,10 +406,9 @@ class DeathTrackerPanel extends PluginPanel
                 overallDeaths += record.getDeaths();
             }
         }
-        overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths, ColorScheme.LIGHT_GRAY_COLOR));
-        overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost, ColorScheme.LIGHT_GRAY_COLOR));
-        actionsProtectedLabel.setText(htmlLabel("Protected Wealth: ", overallProtected, ColorScheme.PROGRESS_COMPLETE_COLOR));
-        actionsRiskedLabel.setText(htmlLabel("Risked Wealth: ", overallRisk, ColorScheme.PROGRESS_ERROR_COLOR));
+        overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths));
+        overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost));
+        updateActionsToolTip();
         updateCollapseText();
     }
 
@@ -441,11 +440,12 @@ class DeathTrackerPanel extends PluginPanel
             return;
         }
 
-        sessionRecords.removeIf(r -> r.matches(currentView, currentType));
-        aggregateRecords.removeIf(r -> r.matches(currentView, currentType));
-        boxes.removeIf(b -> b.matches(currentView, currentType));
+        Predicate<DeathTrackerRecord> match = r -> r.matches(record.getTitle(), record.getType());
+        sessionRecords.removeIf(match);
+        aggregateRecords.removeIf(match);
+        boxes.remove(box);
         updateOverall();
-        logsContainer.removeAll();
+        logsContainer.remove(box);
         logsContainer.repaint();
 
     }

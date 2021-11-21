@@ -27,25 +27,17 @@
 
 package com.deathtracker;
 
-import com.google.common.annotations.VisibleForTesting;
+import com.google.common.collect.ImmutableSet;
 import java.awt.image.BufferedImage;
-import java.util.List;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.EnumSet;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
-import java.util.stream.Collectors;
 import javax.inject.Inject;
 import javax.swing.ImageIcon;
-import lombok.AllArgsConstructor;
-import lombok.Getter;
-import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
+import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.SpriteID;
 import net.runelite.api.GameState;
 import net.runelite.api.Item;
@@ -57,9 +49,9 @@ import net.runelite.api.Varbits;
 import net.runelite.api.WorldType;
 import net.runelite.api.SkullIcon;
 import net.runelite.api.events.GameStateChanged;
+import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.VarbitChanged;
-import net.runelite.api.vars.AccountType;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.eventbus.Subscribe;
@@ -113,6 +105,10 @@ public class DeathTrackerPlugin extends Plugin {
 
 	public static Item[] currentInventory;
 	public static Item[] currentEquipment;
+	public static Item[] afterDeathInventory;
+	public static Item[] afterDeathEquipment;
+
+	private static WorldPoint deathPoint;
 
 	static {
 		unskulledIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "unskulled.png");
@@ -121,6 +117,15 @@ public class DeathTrackerPlugin extends Plugin {
 		SKULLED = new ImageIcon(skulledIcon);
 		UNSKULLED = new ImageIcon(unskulledIcon);
 	}
+
+	private static final Set<Integer> RESPAWN_REGIONS = ImmutableSet.of(
+			6457, // Kourend
+			12850, // Lumbridge
+			11828, // Falador
+			12342, // Edgeville
+			11062, // Camelot
+			13150, 12894 // Prifddinas
+	);
 
 	@Override
 	protected void startUp()
@@ -159,28 +164,70 @@ public class DeathTrackerPlugin extends Plugin {
 		if (event.getGameState() == GameState.LOGGED_IN)
 		{
 			syncSettings();
-			getCurrentInventory();
+			getInventory();
 		}
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
-		getCurrentInventory();
+		if(deathPoint == null)
+		{
+			getInventory();
+		}
 	}
 
 	@Subscribe
 	public void onActorDeath(ActorDeath actorDeath)
 	{
-		/* Process Death Here */
+		deathPoint = client.getLocalPlayer().getWorldLocation();
 	}
 
-	public void getCurrentInventory()
+	@Subscribe
+	public void onGameTick(GameTick event)
+	{
+		if (deathPoint != null && !client.getLocalPlayer().getWorldLocation().equals(deathPoint))
+		{
+			if (!RESPAWN_REGIONS.contains(client.getLocalPlayer().getWorldLocation().getRegionID()))
+			{
+				log.debug("Died, but did not respawn in a known respawn location: {}",
+						client.getLocalPlayer().getWorldLocation().getRegionID());
+
+				deathPoint = null;
+				return;
+			}
+			getInventory(true);
+			processItemsLost();
+			deathPoint = null;
+		}
+	}
+
+	public void getInventory()
 	{
 		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
 		currentInventory = inventory == null ? new Item[0] : inventory.getItems();
 		final ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
 		currentEquipment = equipment == null ? new Item[0] : equipment.getItems();
+	}
+
+	public void getInventory(boolean hasDied)
+	{
+		if(hasDied){
+			final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+			afterDeathInventory = inventory == null ? new Item[0] : inventory.getItems();
+			final ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
+			afterDeathEquipment = equipment == null ? new Item[0] : equipment.getItems();
+		}
+	}
+
+	public void processItemsLost()
+	{
+		/*
+			1) Differentiate PvP or PvM death
+			2) Find difference between afterDeath and current
+			3) Calculate cost of death
+			4) Send results to methods which update overallInfo and create a box containing items lost at monster
+		*/
 	}
 
 	public void syncSettings()
