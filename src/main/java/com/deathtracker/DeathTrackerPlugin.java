@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2018, Psikoi <https://github.com/psikoi>
  * Copyright (c) 2018, Adam <Adam@sigterm.info>
- * Copyright (c) 2018, TheStonedTurtle <https://github.com/TheStonedTurtle>
  * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
@@ -44,6 +43,7 @@ import javax.inject.Inject;
 import javax.swing.ImageIcon;
 import lombok.AllArgsConstructor;
 import lombok.Getter;
+import lombok.NonNull;
 import lombok.extern.slf4j.Slf4j;
 import net.runelite.api.Client;
 import net.runelite.api.SpriteID;
@@ -65,21 +65,12 @@ import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.client.game.ItemManager;
-import net.runelite.client.game.ItemMapping;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
-import net.runelite.http.api.loottracker.GameItem;
-import com.deathtracker.risk.AlwaysLostItem;
-import com.deathtracker.risk.BrokenOnDeathItem;
-import com.deathtracker.risk.DynamicPriceItem;
-import com.deathtracker.risk.FixedPriceItem;
-import com.deathtracker.risk.ItemStack;
-import com.deathtracker.risk.Pets;
-import com.deathtracker.risk.LostIfNotProtected;
 
 @PluginDescriptor(
 	name = "Death Tracker",
@@ -89,15 +80,6 @@ import com.deathtracker.risk.LostIfNotProtected;
 
 @Slf4j
 public class DeathTrackerPlugin extends Plugin {
-
-	@AllArgsConstructor
-	@Getter
-	@VisibleForTesting
-	public static class DeathItems {
-		private final List<ItemStack> keptItems;
-		private final List<ItemStack> lostItems;
-		private final boolean hasAlwaysLost;
-	}
 
 	@Inject
 	private Client client;
@@ -120,7 +102,6 @@ public class DeathTrackerPlugin extends Plugin {
 	private static final BufferedImage skulledIcon;
 	private static final BufferedImage navIcon;
 
-	private static final int DEEP_WILDY = 20;
 	private static final Pattern WILDERNESS_LEVEL_PATTERN = Pattern.compile("^Level: (\\d+).*");
 
 	public static boolean isSkulled = false;
@@ -128,7 +109,10 @@ public class DeathTrackerPlugin extends Plugin {
 	public static boolean pvpWorld = false;
 	public static boolean pvpSafeZone = false;
 	public static boolean highRiskWorld = false;
-	private static int wildyLevel = -1;
+	public static int wildyLevel = -1;
+
+	public static Item[] currentInventory;
+	public static Item[] currentEquipment;
 
 	static {
 		unskulledIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "unskulled.png");
@@ -175,14 +159,14 @@ public class DeathTrackerPlugin extends Plugin {
 		if (event.getGameState() == GameState.LOGGED_IN)
 		{
 			syncSettings();
+			getCurrentInventory();
 		}
 	}
 
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
-		ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
-		ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
+		getCurrentInventory();
 	}
 
 	@Subscribe
@@ -191,29 +175,33 @@ public class DeathTrackerPlugin extends Plugin {
 		/* Process Death Here */
 	}
 
-	private void processRisk()
+	public void getCurrentInventory()
 	{
-		/* Process Risk Here */
+		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
+		currentInventory = inventory == null ? new Item[0] : inventory.getItems();
+		final ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
+		currentEquipment = equipment == null ? new Item[0] : equipment.getItems();
 	}
 
 	public void syncSettings()
 	{
-		final SkullIcon s = client.getLocalPlayer().getSkullIcon();
-		isSkulled = s == SkullIcon.SKULL || isUltimateIronman();
-		if(!isSkulled) {
-			panel.skullStatus.setIcon(UNSKULLED);
-		} else {
-			panel.skullStatus.setIcon(SKULLED);
-		}
+		syncWildernessLevel();
+		highRiskWorld = isProtectItemAllowed();
 		protectingItem = isProtectingItem();
+		isSkulled = client.getLocalPlayer().getSkullIcon() == SkullIcon.SKULL;
+
+		if(isSkulled || (wildyLevel > 1 && highRiskWorld) || (highRiskWorld && pvpWorld)) {
+			panel.skullStatus.setIcon(SKULLED);
+		} else {
+			panel.skullStatus.setIcon(UNSKULLED);
+		}
+
 		if(!protectingItem) {
 			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
 		} else {
 			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPrayerSprite);
 		}
-		syncWildernessLevel();
-		highRiskWorld = isProtectItemAllowed();
-		pvpSafeZone = isInPvPSafeZone();
+
 		panel.updateActionsToolTip();
 	}
 
@@ -222,7 +210,8 @@ public class DeathTrackerPlugin extends Plugin {
 		if (client.getVar(Varbits.IN_WILDERNESS) != 1)
 		{
 			pvpWorld = isInPvpWorld();
-			if (pvpWorld && !isInPvPSafeZone())
+			pvpSafeZone = isInPvPSafeZone();
+			if (pvpWorld && !pvpSafeZone)
 			{
 				wildyLevel = 1;
 				return;
@@ -257,8 +246,7 @@ public class DeathTrackerPlugin extends Plugin {
 
 	private boolean isProtectItemAllowed()
 	{
-		return client.getWorldType().contains(WorldType.HIGH_RISK)
-				|| isUltimateIronman();
+		return client.getWorldType().contains(WorldType.HIGH_RISK);
 	}
 
 	private boolean isProtectingItem()
@@ -272,239 +260,4 @@ public class DeathTrackerPlugin extends Plugin {
 		return w != null && !w.isHidden();
 	}
 
-	private boolean isUltimateIronman()
-	{
-		return client.getAccountType() == AccountType.ULTIMATE_IRONMAN;
-	}
-
-	private int getDefaultItemsKept()
-	{
-		final int count = isSkulled ? 0 : 3;
-		return count + (protectingItem ? 1 : 0);
-	}
-
-	DeathItems calculateKeptLostItems(final Item[] inv, final Item[] equip)
-	{
-		final List<Item> items = new ArrayList<>();
-		Collections.addAll(items, inv);
-		Collections.addAll(items, equip);
-
-		items.sort(Comparator.comparing(this::getDeathPrice).reversed());
-
-		boolean hasClueBox = false;
-		boolean hasAlwaysLost = false;
-		int keepCount = getDefaultItemsKept();
-
-		final List<ItemStack> keptItems = new ArrayList<>();
-		final List<ItemStack> lostItems = new ArrayList<>();
-
-		for (final Item i : items)
-		{
-			final int id = i.getId();
-			int qty = i.getQuantity();
-			if (id == -1)
-			{
-				continue;
-			}
-
-			if (id == ItemID.OLD_SCHOOL_BOND || id == ItemID.OLD_SCHOOL_BOND_UNTRADEABLE)
-			{
-				keptItems.add(new ItemStack(id, qty));
-				continue;
-			}
-
-			final AlwaysLostItem alwaysLostItem = AlwaysLostItem.getByItemID(id);
-			if (alwaysLostItem != null && (!alwaysLostItem.isKeptOutsideOfWilderness() || wildyLevel > 0))
-			{
-				hasAlwaysLost = true;
-				hasClueBox = hasClueBox || id == ItemID.CLUE_BOX;
-				lostItems.add(new ItemStack(id, qty));
-				continue;
-			}
-
-			if (keepCount > 0)
-			{
-				if (i.getQuantity() > keepCount)
-				{
-					keptItems.add(new ItemStack(id, keepCount));
-					qty -= keepCount;
-					keepCount = 0;
-				}
-				else
-				{
-					keptItems.add(new ItemStack(id, qty));
-					keepCount -= qty;
-					continue;
-				}
-			}
-
-			if (!Pets.isPet(id)
-					&& !LostIfNotProtected.isLostIfNotProtected(id)
-					&& !isTradeable(itemManager.getItemComposition(id)) && wildyLevel <= DEEP_WILDY
-					&& (wildyLevel <= 0 || BrokenOnDeathItem.isBrokenOnDeath(i.getId())))
-			{
-				keptItems.add(new ItemStack(id, qty));
-			}
-			else
-			{
-				lostItems.add(new ItemStack(id, qty));
-			}
-		}
-
-		if (hasClueBox)
-		{
-			boolean alreadyProtectingClue = false;
-			for (final ItemStack item : keptItems)
-			{
-				if (isClueBoxable(item.getId()))
-				{
-					alreadyProtectingClue = true;
-					break;
-				}
-			}
-
-			if (!alreadyProtectingClue)
-			{
-				int clueId = -1;
-				for (final Item i : inv)
-				{
-					final int id = i.getId();
-					if (id != -1 && isClueBoxable(id))
-					{
-						clueId = id;
-					}
-				}
-
-				if (clueId != -1)
-				{
-					for (final com.deathtracker.risk.ItemStack boxableItem : lostItems)
-					{
-						if (boxableItem.getId() == clueId)
-						{
-							if (boxableItem.getQuantity() > 1)
-							{
-								boxableItem.setQuantity(boxableItem.getQuantity() - 1);
-								keptItems.add(new com.deathtracker.risk.ItemStack(clueId, 1));
-							}
-							else
-							{
-								lostItems.remove(boxableItem);
-								keptItems.add(boxableItem);
-							}
-							break;
-						}
-					}
-				}
-			}
-		}
-
-		return new DeathItems(keptItems, lostItems, hasAlwaysLost);
-	}
-
-	boolean isClueBoxable(final int itemID)
-	{
-		final String name = itemManager.getItemComposition(itemID).getName();
-		return name.contains("Clue scroll (") || name.contains("Reward casket (");
-	}
-
-	int getDeathPrice(Item item)
-	{
-
-		int itemId = item.getId();
-
-		int canonicalizedItemId = itemManager.canonicalize(itemId);
-		int exchangePrice = 0;
-
-		final DynamicPriceItem dynamicPrice = DynamicPriceItem.find(canonicalizedItemId);
-		if (dynamicPrice != null)
-		{
-			final int basePrice = itemManager.getItemPrice(dynamicPrice.getChargedId());
-			return dynamicPrice.calculateDeathPrice(basePrice);
-		}
-
-		final FixedPriceItem fixedPrice = FixedPriceItem.find(canonicalizedItemId);
-		if (fixedPrice != null && fixedPrice.getBaseId() != -1)
-		{
-			exchangePrice = itemManager.getItemPrice(fixedPrice.getBaseId());
-		}
-		else
-		{
-			for (final ItemMapping mappedID : ItemMapping.map(canonicalizedItemId))
-			{
-				exchangePrice += itemManager.getItemPrice(mappedID.getTradeableItem());
-			}
-		}
-
-		if (exchangePrice == 0)
-		{
-			final ItemComposition c1 = itemManager.getItemComposition(canonicalizedItemId);
-			exchangePrice = c1.getPrice();
-		}
-
-		exchangePrice += fixedPrice == null ? 0 : fixedPrice.getOffset();
-
-		return exchangePrice;
-	}
-
-	private static boolean isTradeable(final ItemComposition c)
-	{
-		if (c.getNote() != -1
-				|| c.getLinkedNoteId() != -1
-				|| c.isTradeable())
-		{
-			return true;
-		}
-
-		final int id = c.getId();
-		switch (id)
-		{
-			case ItemID.COINS_995:
-			case ItemID.PLATINUM_TOKEN:
-				return true;
-			default:
-				return false;
-		}
-	}
-
-	private DeathTrackerItem buildDeathTrackerItem(int itemId, int quantity)
-	{
-		final ItemComposition itemComposition = itemManager.getItemComposition(itemId);
-		final int gePrice = itemManager.getItemPrice(itemId);
-		final int haPrice = itemComposition.getHaPrice();
-
-		return new DeathTrackerItem(
-				itemId,
-				itemComposition.getName(),
-				quantity,
-				gePrice);
-	}
-
-	private DeathTrackerItem[] buildEntries(final Collection<ItemStack> itemStacks)
-	{
-		return itemStacks.stream()
-				.map(itemStack -> buildDeathTrackerItem(itemStack.getId(), itemStack.getQuantity()))
-				.toArray(DeathTrackerItem[]::new);
-	}
-
-	private static Collection<GameItem> toGameItems(Collection<ItemStack> items)
-	{
-		return items.stream()
-				.map(item -> new GameItem(item.getId(), item.getQuantity()))
-				.collect(Collectors.toList());
-	}
-
-	private boolean isPlayerWithinMapRegion(Set<Integer> definedMapRegions)
-	{
-		final int[] mapRegions = client.getMapRegions();
-
-		for (int region : mapRegions)
-		{
-			if (definedMapRegions.contains(region))
-			{
-				return true;
-			}
-		}
-
-		return false;
-	}
 }

@@ -50,6 +50,9 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicButtonUI;
+import net.runelite.api.Item;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.ParamHolder;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
@@ -83,6 +86,7 @@ class DeathTrackerPanel extends PluginPanel
 
     /* Session data */
     private final JPanel overallPanel = new JPanel();
+    private final JPanel overallInfo = new JPanel();
     private final JLabel overallDeathsLabel = new JLabel();
     private final JLabel overallCostLabel = new JLabel();
     private final JLabel overallIcon = new JLabel();
@@ -91,11 +95,10 @@ class DeathTrackerPanel extends PluginPanel
     private final JPanel actionsContainer = new JPanel();
     private final JLabel actionsRiskedLabel = new JLabel();
     private final JLabel actionsProtectedLabel = new JLabel();
-    final JPanel actionsInfo = new JPanel();
-
+    private final JPanel actionsInfo = new JPanel();
     private final JButton collapseBtn = new JButton();
-    final JLabel prayerStatus = new JLabel();
-    final JLabel skullStatus = new JLabel();
+    private final JLabel prayerStatus = new JLabel();
+    public final JLabel skullStatus = new JLabel();
 
     /* Aggregate of all deaths */
     private final List<DeathTrackerRecord> aggregateRecords = new ArrayList<>();
@@ -179,7 +182,6 @@ class DeathTrackerPanel extends PluginPanel
         overallPanel.setLayout(new BorderLayout());
         overallPanel.setVisible(true);
 
-        final JPanel overallInfo = new JPanel();
         overallInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         overallInfo.setLayout(new GridLayout(2, 1));
         overallInfo.setBorder(new EmptyBorder(2, 10, 2, 0));
@@ -256,7 +258,7 @@ class DeathTrackerPanel extends PluginPanel
 
     public void updateActionsToolTip()
     {
-        skullStatus.setToolTipText(DeathTrackerPlugin.isSkulled ? "Skulled" : "Unskulled");
+        skullStatus.setToolTipText((DeathTrackerPlugin.isSkulled || (DeathTrackerPlugin.wildyLevel > 1 && DeathTrackerPlugin.highRiskWorld) || (DeathTrackerPlugin.highRiskWorld && DeathTrackerPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
         prayerStatus.setToolTipText(DeathTrackerPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
         actionsContainer.setToolTipText(
                 "<html>" +
@@ -408,7 +410,6 @@ class DeathTrackerPanel extends PluginPanel
         overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost, ColorScheme.LIGHT_GRAY_COLOR));
         actionsProtectedLabel.setText(htmlLabel("Protected Wealth: ", overallProtected, ColorScheme.PROGRESS_COMPLETE_COLOR));
         actionsRiskedLabel.setText(htmlLabel("Risked Wealth: ", overallRisk, ColorScheme.PROGRESS_ERROR_COLOR));
-        updateActionsToolTip();
         updateCollapseText();
     }
 
