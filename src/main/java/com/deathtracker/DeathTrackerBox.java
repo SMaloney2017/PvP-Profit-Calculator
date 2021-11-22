@@ -120,7 +120,7 @@ class DeathTrackerBox extends JPanel
         add(logTitle, BorderLayout.NORTH);
         add(itemContainer, BorderLayout.CENTER);
 
-        /* Include/ Ignore Loot */
+        /* Include/ Ignore Item */
     }
 
     public int getTotalDeaths()
@@ -151,6 +151,27 @@ class DeathTrackerBox extends JPanel
         }
 
         deaths += record.getDeaths();
+
+        outer:
+        for (DeathTrackerItem item : record.getItems())
+        {
+            final int mappedItemId = DeathTrackerMap.map(item.getId(), item.getName());
+            // Combine it into an existing item if one already exists
+            for (int idx = 0; idx < items.size(); ++idx)
+            {
+                DeathTrackerItem i = items.get(idx);
+                if (mappedItemId == i.getId())
+                {
+                    items.set(idx, new DeathTrackerItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getCost()));
+                    continue outer;
+                }
+            }
+
+            final DeathTrackerItem mappedItem = mappedItemId == item.getId()
+                    ? item // reuse existing item
+                    : new DeathTrackerItem(mappedItemId, item.getName(), item.getQuantity(), item.getCost());
+            items.add(mappedItem);
+        }
 
     }
 
@@ -234,7 +255,7 @@ class DeathTrackerBox extends JPanel
         final int rowSize = ((items.size() % ITEMS_PER_ROW == 0) ? 0 : 1) + items.size() / ITEMS_PER_ROW;
 
         itemContainer.removeAll();
-        itemContainer.setLayout(new GridLayout(rowSize, ITEMS_PER_ROW, 1, 1));
+        itemContainer.setLayout(new GridLayout(rowSize, ITEMS_PER_ROW, 2, 2));
 
         for (int i = 0; i < rowSize * ITEMS_PER_ROW; i++)
         {
@@ -270,13 +291,14 @@ class DeathTrackerBox extends JPanel
         final int quantity = item.getQuantity();
         final long price = item.getTotalCost();
         final StringBuilder sb = new StringBuilder("<html>");
+        sb.append(name).append(" x ").append(QuantityFormatter.formatNumber(quantity));
         if (item.getId() == ItemID.COINS_995)
         {
             sb.append("</html>");
             return sb.toString();
         }
 
-        sb.append("<br>GE: ").append(QuantityFormatter.quantityToStackSize(price));
+        sb.append("<br>Retrieval Cost: ").append(QuantityFormatter.quantityToStackSize(price));
         if (quantity > 1)
         {
             sb.append(" (").append(QuantityFormatter.quantityToStackSize(item.getCost())).append(" ea)");

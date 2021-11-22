@@ -29,34 +29,36 @@ package com.deathtracker;
 
 import com.google.common.collect.ImmutableSet;
 import java.awt.image.BufferedImage;
+import java.time.Duration;
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collection;
 import java.util.EnumSet;
+import java.util.List;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import javax.inject.Inject;
 import javax.swing.ImageIcon;
+import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
-import net.runelite.api.Client;
+import lombok.NonNull;
+import net.runelite.api.*;
+import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
-import net.runelite.api.SpriteID;
-import net.runelite.api.GameState;
-import net.runelite.api.Item;
-import net.runelite.api.ItemID;
-import net.runelite.api.ItemComposition;
-import net.runelite.api.ItemContainer;
-import net.runelite.api.InventoryID;
-import net.runelite.api.Varbits;
-import net.runelite.api.WorldType;
-import net.runelite.api.SkullIcon;
+import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.ItemContainerChanged;
+import net.runelite.api.events.MenuOptionClicked;
 import net.runelite.api.events.VarbitChanged;
+import net.runelite.api.events.WidgetLoaded;
 import net.runelite.api.widgets.Widget;
+import net.runelite.api.widgets.WidgetID;
 import net.runelite.api.widgets.WidgetInfo;
 import net.runelite.client.eventbus.Subscribe;
-import net.runelite.api.events.ActorDeath;
 import net.runelite.client.game.ItemManager;
+import net.runelite.client.game.ItemStack;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.plugins.Plugin;
 import net.runelite.client.plugins.PluginDescriptor;
@@ -71,8 +73,8 @@ import net.runelite.client.util.ImageUtil;
 )
 
 @Slf4j
-public class DeathTrackerPlugin extends Plugin {
-
+public class DeathTrackerPlugin extends Plugin
+{
 	@Inject
 	private Client client;
 
@@ -101,14 +103,18 @@ public class DeathTrackerPlugin extends Plugin {
 	public static boolean pvpWorld = false;
 	public static boolean pvpSafeZone = false;
 	public static boolean highRiskWorld = false;
+	public static boolean isInstanced = false;
 	public static int wildyLevel = -1;
 
-	public static Item[] currentInventory;
-	public static Item[] currentEquipment;
-	public static Item[] afterDeathInventory;
-	public static Item[] afterDeathEquipment;
+	public static Widget gravestoneWidget = null;
+	private static WorldPoint deathLocation = null;
+	private NPCComposition currentNPCInteraction = null;
+	private Player currentPlayerInteraction = null;
 
-	private static WorldPoint deathPoint;
+	public static Item[] currentInventory = null;
+	public static Item[] currentEquipment = null;
+	public static Item[] afterDeathInventory = null;
+	public static Item[] afterDeathEquipment = null;
 
 	static {
 		unskulledIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "unskulled.png");
@@ -126,6 +132,35 @@ public class DeathTrackerPlugin extends Plugin {
 			11062, // Camelot
 			13150, 12894 // Prifddinas
 	);
+
+	private static Collection<ItemStack> stack(Collection<ItemStack> items)
+	{
+		final List<ItemStack> list = new ArrayList<>();
+
+		for (final ItemStack item : items)
+		{
+			int quantity = 0;
+			for (final ItemStack i : list)
+			{
+				if (i.getId() == item.getId())
+				{
+					quantity = i.getQuantity();
+					list.remove(i);
+					break;
+				}
+			}
+			if (quantity > 0)
+			{
+				list.add(new ItemStack(item.getId(), item.getQuantity() + quantity, item.getLocation()));
+			}
+			else
+			{
+				list.add(item);
+			}
+		}
+
+		return list;
+	}
 
 	@Override
 	protected void startUp()
@@ -150,6 +185,20 @@ public class DeathTrackerPlugin extends Plugin {
 	protected void shutDown()
 	{
 		clientToolbar.removeNavigation(navButton);
+		currentNPCInteraction = null;
+		currentPlayerInteraction = null;
+	}
+
+	@Subscribe
+	public void onActorDeath(ActorDeath event)
+	{
+		if(event.getActor() != client.getLocalPlayer()){
+			return;
+		}
+		if(client.isInInstancedRegion()){
+			isInstanced = true;
+		}
+		deathLocation = (client.getLocalPlayer().getWorldLocation());
 	}
 
 	@Subscribe
@@ -171,34 +220,60 @@ public class DeathTrackerPlugin extends Plugin {
 	@Subscribe
 	public void onItemContainerChanged(ItemContainerChanged event)
 	{
-		if(deathPoint == null)
+		if(deathLocation == null)
 		{
 			getInventory();
 		}
 	}
 
 	@Subscribe
-	public void onActorDeath(ActorDeath actorDeath)
+	public void onWidgetLoaded(WidgetLoaded event)
 	{
-		deathPoint = client.getLocalPlayer().getWorldLocation();
+		if((event.getGroupId() == WidgetID.GRAVESTONE_GROUP_ID))
+		{
+			gravestoneWidget = client.getWidget(event.getGroupId());
+		}
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
-		if (deathPoint != null && !client.getLocalPlayer().getWorldLocation().equals(deathPoint))
+		if ((currentNPCInteraction != null || currentPlayerInteraction != null) && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation))
 		{
 			if (!RESPAWN_REGIONS.contains(client.getLocalPlayer().getWorldLocation().getRegionID()))
 			{
 				log.debug("Died, but did not respawn in a known respawn location: {}",
 						client.getLocalPlayer().getWorldLocation().getRegionID());
 
-				deathPoint = null;
+				deathLocation = null;
+				currentPlayerInteraction = null;
+				currentNPCInteraction = null;
 				return;
 			}
 			getInventory(true);
 			processItemsLost();
-			deathPoint = null;
+
+			deathLocation = null;
+			currentPlayerInteraction = null;
+			currentNPCInteraction = null;
+		}
+	}
+
+	@Subscribe
+	public void onMenuOptionClicked(MenuOptionClicked event)
+	{
+		NPC npc;
+		Player player;
+		int actorIndex = event.getId();
+		if(event.getMenuAction() == MenuAction.NPC_SECOND_OPTION || event.getMenuAction() == MenuAction.PLAYER_SECOND_OPTION)
+		{
+			if (actorIndex < client.getCachedNPCs().length + 1 && (npc = client.getCachedNPCs()[actorIndex]) != null) {
+				currentPlayerInteraction = null;
+				currentNPCInteraction = npc.getComposition();
+			} else if (actorIndex < client.getCachedNPCs().length + 1 && (player = client.getCachedPlayers()[actorIndex]) != null) {
+				currentNPCInteraction = null;
+				currentPlayerInteraction = player;
+			}
 		}
 	}
 
@@ -222,12 +297,23 @@ public class DeathTrackerPlugin extends Plugin {
 
 	public void processItemsLost()
 	{
-		/*
-			1) Differentiate PvP or PvM death
-			2) Find difference between afterDeath and current
-			3) Calculate cost of death
-			4) Send results to methods which update overallInfo and create a box containing items lost at monster
-		*/
+		boolean pvpDeath = gravestoneWidget != null && !isInstanced;
+
+		final Collection<ItemStack> itemsLostCollection = new ArrayList<>();
+		ArrayList<Item> itemsLostList = new ArrayList<>(Arrays.asList(currentEquipment));
+		itemsLostList.addAll(new ArrayList<>(Arrays.asList(currentInventory)));
+		itemsLostList.removeAll(new ArrayList<>(Arrays.asList(afterDeathEquipment)));
+		itemsLostList.removeAll(new ArrayList<>(Arrays.asList(afterDeathInventory)));
+		for(Item i : itemsLostList){
+			ItemStack newItem = new ItemStack(i.getId(), i.getQuantity(), LocalPoint.fromWorld(client, deathLocation));
+			itemsLostCollection.add(newItem);
+		}
+
+		if(currentNPCInteraction != null){
+			addDeath(currentNPCInteraction.getName(), currentNPCInteraction.getCombatLevel(), (pvpDeath ? DeathRecordType.PLAYER : DeathRecordType.NPC), itemsLostCollection);
+		}else if(currentPlayerInteraction != null) {
+			addDeath(currentPlayerInteraction.getName(), currentPlayerInteraction.getCombatLevel(), (pvpDeath ? DeathRecordType.PLAYER : DeathRecordType.NPC), itemsLostCollection);
+		}
 	}
 
 	public void syncSettings()
@@ -235,7 +321,13 @@ public class DeathTrackerPlugin extends Plugin {
 		syncWildernessLevel();
 		highRiskWorld = isProtectItemAllowed();
 		protectingItem = isProtectingItem();
-		isSkulled = client.getLocalPlayer().getSkullIcon() == SkullIcon.SKULL;
+
+		try{
+			isSkulled = client.getLocalPlayer().getSkullIcon() == SkullIcon.SKULL;
+		}
+		catch(NullPointerException e){
+			isSkulled = false;
+		}
 
 		if(isSkulled || (wildyLevel > 1 && highRiskWorld) || (highRiskWorld && pvpWorld)) {
 			panel.skullStatus.setIcon(SKULLED);
@@ -305,6 +397,31 @@ public class DeathTrackerPlugin extends Plugin {
 	{
 		final Widget w = client.getWidget(WidgetInfo.PVP_WORLD_SAFE_ZONE);
 		return w != null && !w.isHidden();
+	}
+
+	void addDeath(@NonNull String name, int combatLevel, DeathRecordType type, Collection<ItemStack> items)
+	{
+		final DeathTrackerItem[] entries = buildEntries(stack(items));
+		SwingUtilities.invokeLater(() -> panel.add(name, type, combatLevel, entries));
+
+	}
+
+	private DeathTrackerItem buildDeathTrackerItem(int itemId, int quantity)
+	{
+		final ItemComposition itemComposition = itemManager.getItemComposition(itemId);
+		final int gePrice = itemManager.getItemPrice(itemId); /* Replace with cost of item retrieval */
+		return new DeathTrackerItem(
+				itemId,
+				itemComposition.getName(),
+				quantity,
+				gePrice);
+	}
+
+	private DeathTrackerItem[] buildEntries(final Collection<ItemStack> itemStacks)
+	{
+		return itemStacks.stream()
+				.map(itemStack -> buildDeathTrackerItem(itemStack.getId(), itemStack.getQuantity()))
+				.toArray(DeathTrackerItem[]::new);
 	}
 
 }

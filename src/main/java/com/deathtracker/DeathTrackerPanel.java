@@ -71,10 +71,10 @@ class DeathTrackerPanel extends PluginPanel
     @Inject
     private SpriteManager spriteManager;
 
-    private static final BufferedImage expandedImg;
-    private static final BufferedImage collapseImg;
-    private static final ImageIcon COLLAPSE_ICON;
-    private static final ImageIcon EXPAND_ICON;
+    private static final BufferedImage visibleImg;
+    private static final BufferedImage invisibleImg;
+    private static final ImageIcon VISIBLE_ICON;
+    private static final ImageIcon INVISIBLE_ICON;
 
     private static final String HTML_LABEL_TEMPLATE =
             "<html><body style='color:%s'>%s<span style='color:white'>%s</span></body></html>";
@@ -101,9 +101,6 @@ class DeathTrackerPanel extends PluginPanel
     private final JLabel prayerStatus = new JLabel();
     public final JLabel skullStatus = new JLabel();
 
-    /* Aggregate of all deaths */
-    private final List<DeathTrackerRecord> aggregateRecords = new ArrayList<>();
-
     /* Individual record of each death */
     private final List<DeathTrackerRecord> sessionRecords = new ArrayList<>();
     private final List<DeathTrackerBox> boxes = new ArrayList<>();
@@ -115,10 +112,11 @@ class DeathTrackerPanel extends PluginPanel
     private boolean collapseAll = false;
 
     static {
-        collapseImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "collapsed.png");
-        expandedImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "expanded.png");
-        COLLAPSE_ICON = new ImageIcon(collapseImg);
-        EXPAND_ICON = new ImageIcon(expandedImg);
+        visibleImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "visible_icon.png");
+        invisibleImg = ImageUtil.loadImageResource(LootTrackerPlugin.class, "invisible_icon.png");
+
+        VISIBLE_ICON = new ImageIcon(ImageUtil.alphaOffset(visibleImg, -220));
+        INVISIBLE_ICON = new ImageIcon(ImageUtil.alphaOffset(invisibleImg, -200));
     }
 
     DeathTrackerPanel(final DeathTrackerPlugin plugin, final ItemManager itemManager)
@@ -158,15 +156,15 @@ class DeathTrackerPanel extends PluginPanel
         actionsContainer.add(actionsInfo);
 
         SwingUtil.removeButtonDecorations(collapseBtn);
-        collapseBtn.setIcon(EXPAND_ICON);
-        collapseBtn.setToolTipText("Toggle Collapse");
+        collapseBtn.setIcon(collapseAll ? INVISIBLE_ICON : VISIBLE_ICON);
+        collapseBtn.setToolTipText("Toggle View");
         collapseBtn.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         collapseBtn.setUI(new BasicButtonUI());
         collapseBtn.addMouseListener(new MouseAdapter()
         {
             public void mousePressed(MouseEvent me) {
                 changeCollapse();
-                ImageIcon collapseIcon = collapseAll ? COLLAPSE_ICON : EXPAND_ICON;
+                ImageIcon collapseIcon = (collapseAll ? INVISIBLE_ICON : VISIBLE_ICON);
                 collapseBtn.setIcon(collapseIcon);
                 collapseAll = !collapseAll;
             }
@@ -210,7 +208,7 @@ class DeathTrackerPanel extends PluginPanel
         layoutPanel.add(overallPanel);
         layoutPanel.add(logsContainer);
 
-        errorPanel.setContent("Death tracker", "You have not died yet.");
+        errorPanel.setContent("Death Tracker", "You have not died yet.");
         add(errorPanel);
         updateOverall();
     }
@@ -297,18 +295,11 @@ class DeathTrackerPanel extends PluginPanel
         }
     }
 
-    void addRecords(Collection<DeathTrackerRecord> records)
-    {
-        aggregateRecords.addAll(records);
-        rebuild();
-    }
-
     private void rebuild()
     {
         SwingUtil.fastRemoveAll(logsContainer);
         boxes.clear();
 
-        aggregateRecords.forEach(this::buildBox);
         sessionRecords.forEach(this::buildBox);
 
         boxes.forEach(DeathTrackerBox::rebuild);
@@ -328,7 +319,6 @@ class DeathTrackerPanel extends PluginPanel
         {
             if (box.matches(record))
             {
-                // float the matched box to the top of the UI list if it's not already first
                 logsContainer.setComponentZOrder(box, 0);
                 box.addDeath(record);
                 return box;
@@ -386,7 +376,7 @@ class DeathTrackerPanel extends PluginPanel
         long overallDeaths = 0;
         long overallCost = 0;
 
-        Iterable<DeathTrackerRecord> records = concat(aggregateRecords, sessionRecords);
+        Iterable<DeathTrackerRecord> records = sessionRecords;
 
         for (DeathTrackerRecord record : records)
         {
@@ -421,18 +411,18 @@ class DeathTrackerPanel extends PluginPanel
         if (result != JOptionPane.YES_OPTION) {
             return;
         }
-
-        sessionRecords.removeIf(r -> r.matches(currentView, currentType));
-        aggregateRecords.removeIf(r -> r.matches(currentView, currentType));
+        Predicate<DeathTrackerRecord> match = r -> r.matches(currentView, currentType);
+        sessionRecords.removeIf(match);
         boxes.removeIf(b -> b.matches(currentView, currentType));
         updateOverall();
         logsContainer.removeAll();
         logsContainer.repaint();
+        add(errorPanel);
     }
 
     private void resetMatch(DeathTrackerBox box, DeathTrackerRecord record)
     {
-        final int result = JOptionPane.showOptionDialog(overallPanel, "This will permanently delete the current deaths from the client.",
+        final int result = JOptionPane.showOptionDialog(overallPanel, "This will permanently delete the selected record from the client.",
                 "Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
                 null, new String[]{"Yes", "No"}, "No");
 
@@ -442,11 +432,12 @@ class DeathTrackerPanel extends PluginPanel
 
         Predicate<DeathTrackerRecord> match = r -> r.matches(record.getTitle(), record.getType());
         sessionRecords.removeIf(match);
-        aggregateRecords.removeIf(match);
         boxes.remove(box);
         updateOverall();
         logsContainer.remove(box);
         logsContainer.repaint();
-
+        if(sessionRecords.isEmpty()){
+            add(errorPanel);
+        }
     }
 }
