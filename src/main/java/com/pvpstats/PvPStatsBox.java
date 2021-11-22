@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.deathtracker;
+package com.pvpstats;
 
 import com.google.common.base.Strings;
 import java.awt.BorderLayout;
@@ -54,7 +54,7 @@ import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.Text;
 
-class DeathTrackerBox extends JPanel
+class PvPStatsBox extends JPanel
 {
     private static final int ITEMS_PER_ROW = 5;
     private static final int TITLE_PADDING = 5;
@@ -66,23 +66,24 @@ class DeathTrackerBox extends JPanel
     private final ItemManager itemManager;
     @Getter(AccessLevel.PACKAGE)
     private final String id;
-    private final DeathRecordType deathRecordType;
+    private final PvPRecordType deathRecordType;
 
     private int deaths;
+    private int kills;
     @Getter
-    private final List<DeathTrackerItem> items = new ArrayList<>();
+    private final List<PvPStatsItem> items = new ArrayList<>();
 
     private long totalPrice;
 
-    DeathTrackerBox(
+    PvPStatsBox(
             final ItemManager itemManager,
             final String id,
-            final DeathRecordType deathRecordType,
+            final PvPRecordType pvpStatsType,
             @Nullable final String subtitle
     )
     {
         this.id = id;
-        this.deathRecordType = deathRecordType;
+        this.deathRecordType = pvpStatsType;
         this.itemManager = itemManager;
 
         setLayout(new BorderLayout(0, 1));
@@ -90,7 +91,7 @@ class DeathTrackerBox extends JPanel
 
         logTitle.setLayout(new BoxLayout(logTitle, BoxLayout.X_AXIS));
         logTitle.setBorder(new EmptyBorder(7, 7, 7, 7));
-        logTitle.setBackground(ColorScheme.DARKER_GRAY_COLOR.darker());
+        logTitle.setBackground(pvpStatsType == PvPRecordType.DEATH ? ColorScheme.PROGRESS_ERROR_COLOR.darker():ColorScheme.DARKER_GRAY_COLOR.darker());
 
         JLabel titleLabel = new JLabel();
         titleLabel.setText(Text.removeTags(id));
@@ -128,12 +129,17 @@ class DeathTrackerBox extends JPanel
         return deaths;
     }
 
-    boolean matches(final DeathTrackerRecord record)
+    public int getTotalKills()
+    {
+        return kills;
+    }
+
+    boolean matches(final PvPStatsRecord record)
     {
         return record.getTitle().equals(id) && record.getType() == deathRecordType;
     }
 
-    boolean matches(final String id, final DeathRecordType type)
+    boolean matches(final String id, final PvPRecordType type)
     {
         if (id == null)
         {
@@ -143,33 +149,38 @@ class DeathTrackerBox extends JPanel
         return this.id.equals(id) && deathRecordType == type;
     }
 
-    void addDeath(final DeathTrackerRecord record)
+    void addEntry(final PvPStatsRecord record)
     {
         if (!matches(record))
         {
             throw new IllegalArgumentException(record.toString());
         }
 
-        deaths += record.getDeaths();
+        if(record.getType() == PvPRecordType.DEATH)
+        {
+            deaths = record.getValue();
+        }else if(record.getType() == PvPRecordType.KILL)
+        {
+            kills = record.getValue();
+        }
 
         outer:
-        for (DeathTrackerItem item : record.getItems())
+        for (PvPStatsItem item : record.getItems())
         {
-            final int mappedItemId = DeathTrackerMap.map(item.getId(), item.getName());
-            // Combine it into an existing item if one already exists
+            final int mappedItemId = PvPStatsMap.map(item.getId(), item.getName());
             for (int idx = 0; idx < items.size(); ++idx)
             {
-                DeathTrackerItem i = items.get(idx);
+                PvPStatsItem i = items.get(idx);
                 if (mappedItemId == i.getId())
                 {
-                    items.set(idx, new DeathTrackerItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getCost()));
+                    items.set(idx, new PvPStatsItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getGePrice()));
                     continue outer;
                 }
             }
 
-            final DeathTrackerItem mappedItem = mappedItemId == item.getId()
-                    ? item // reuse existing item
-                    : new DeathTrackerItem(mappedItemId, item.getName(), item.getQuantity(), item.getCost());
+            final PvPStatsItem mappedItem = mappedItemId == item.getId()
+                    ? item
+                    : new PvPStatsItem(mappedItemId, item.getName(), item.getQuantity(), item.getGePrice());
             items.add(mappedItem);
         }
 
@@ -185,10 +196,16 @@ class DeathTrackerBox extends JPanel
         priceLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice) + " gp");
 
         final long deaths = getTotalDeaths();
+        final long kills = getTotalKills();
         if (deaths > 1)
         {
             subTitleLabel.setText("x " + deaths);
-            subTitleLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice / deaths) + " gp (average)");
+            subTitleLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice / deaths) + " gp (average loss)");
+        }
+        else if(kills > 1)
+        {
+            subTitleLabel.setText("x " + kills);
+            subTitleLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice / kills) + " gp (average gain)");
         }
 
         validate();
@@ -232,7 +249,7 @@ class DeathTrackerBox extends JPanel
     {
         totalPrice = 0;
 
-        List<DeathTrackerItem> items = this.items;
+        List<PvPStatsItem> items = this.items;
 
         /* Hide Ignored Items */
 
@@ -244,7 +261,7 @@ class DeathTrackerBox extends JPanel
             return;
         }
 
-        ToLongFunction<DeathTrackerItem> price = DeathTrackerItem::getTotalCost;
+        ToLongFunction<PvPStatsItem> price = PvPStatsItem::getTotalPrice;
 
         totalPrice = items.stream()
                 .mapToLong(price)
@@ -264,7 +281,7 @@ class DeathTrackerBox extends JPanel
 
             if (i < items.size())
             {
-                final DeathTrackerItem item = items.get(i);
+                final PvPStatsItem item = items.get(i);
                 final JLabel imageLabel = new JLabel();
                 imageLabel.setToolTipText(buildToolTip(item));
                 imageLabel.setVerticalAlignment(SwingConstants.CENTER);
@@ -285,11 +302,11 @@ class DeathTrackerBox extends JPanel
         itemContainer.repaint();
     }
 
-    private static String buildToolTip(DeathTrackerItem item)
+    private static String buildToolTip(PvPStatsItem item)
     {
         final String name = item.getName();
         final int quantity = item.getQuantity();
-        final long price = item.getTotalCost();
+        final long price = item.getTotalPrice();
         final StringBuilder sb = new StringBuilder("<html>");
         sb.append(name).append(" x ").append(QuantityFormatter.formatNumber(quantity));
         if (item.getId() == ItemID.COINS_995)
@@ -298,10 +315,10 @@ class DeathTrackerBox extends JPanel
             return sb.toString();
         }
 
-        sb.append("<br>Retrieval Cost: ").append(QuantityFormatter.quantityToStackSize(price));
+        sb.append("<br>Ge Price: ").append(QuantityFormatter.quantityToStackSize(price));
         if (quantity > 1)
         {
-            sb.append(" (").append(QuantityFormatter.quantityToStackSize(item.getCost())).append(" ea)");
+            sb.append(" (").append(QuantityFormatter.quantityToStackSize(item.getGePrice())).append(" ea)");
         }
 
         sb.append("</html>");

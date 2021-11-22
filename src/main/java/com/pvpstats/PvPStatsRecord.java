@@ -1,4 +1,5 @@
 /*
+ * Copyright (c) 2018, Psikoi <https://github.com/psikoi>
  * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
@@ -23,11 +24,29 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.deathtracker;
+package com.pvpstats;
 
-public enum DeathRecordType
+import lombok.NonNull;
+import lombok.Value;
+
+@Value
+class PvPStatsRecord
 {
-    NPC,
-    PLAYER,
-    OTHER
+    @NonNull
+    String title;
+    String subTitle;
+    PvPRecordType type;
+    PvPStatsItem[] items;
+    int value; // either a kill or death
+
+
+    boolean matches(final String id, PvPRecordType type)
+    {
+        if (id == null)
+        {
+            return true;
+        }
+
+        return title.equals(id) && this.type == type;
+    }
 }

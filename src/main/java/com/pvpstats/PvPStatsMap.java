@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2018, Psikoi <https://github.com/psikoi>
+ * Copyright (c) 2020, Anthony <https://github.com/while-loop>
  * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
@@ -24,29 +24,28 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.deathtracker;
+package com.pvpstats;
 
-import lombok.NonNull;
-import lombok.Value;
+import com.google.common.collect.ImmutableMap;
+import lombok.AllArgsConstructor;
 
-@Value
-class DeathTrackerRecord
+@AllArgsConstructor
+public class PvPStatsMap
 {
-    @NonNull
-    String title;
-    String subTitle;
-    DeathRecordType type;
-    DeathTrackerItem[] items;
-    int deaths;
 
+	private final String name;
+	private final int baseId;
 
-    boolean matches(final String id, DeathRecordType type)
-    {
-        if (id == null)
-        {
-            return true;
-        }
+	private static final ImmutableMap<String, Integer> MAPPINGS;
 
-        return title.equals(id) && this.type == type;
-    }
+	static
+	{
+		ImmutableMap.Builder<String, Integer> map = ImmutableMap.builder();
+		MAPPINGS = map.build();
+	}
+
+	static int map(int itemId, String name)
+	{
+		return MAPPINGS.getOrDefault(name, itemId);
+	}
 }

@@ -1,5 +1,5 @@
 /*
- * Copyright (c) 2020, Anthony <https://github.com/while-loop>
+ * Copyright (c) 2018, Tomas Slusny <slusnucky@gmail.com>
  * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
@@ -24,28 +24,25 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.deathtracker;
+package com.pvpstats;
 
-import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
+import lombok.EqualsAndHashCode;
+import lombok.Getter;
 
 @AllArgsConstructor
-public class DeathTrackerMap
+@Getter
+@EqualsAndHashCode
+class PvPStatsItem
 {
+    private final int id;
+    private final String name;
+    private int quantity;
+    private final int GePrice;
 
-	private final String name;
-	private final int baseId;
+    long getTotalPrice()
+    {
+        return (long) GePrice * quantity;
+    }
 
-	private static final ImmutableMap<String, Integer> MAPPINGS;
-
-	static
-	{
-		ImmutableMap.Builder<String, Integer> map = ImmutableMap.builder();
-		MAPPINGS = map.build();
-	}
-
-	static int map(int itemId, String name)
-	{
-		return MAPPINGS.getOrDefault(name, itemId);
-	}
 }

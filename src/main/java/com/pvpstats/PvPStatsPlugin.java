@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.deathtracker;
+package com.pvpstats;
 
 import com.google.common.collect.ImmutableSet;
 import java.awt.image.BufferedImage;
@@ -42,7 +42,6 @@ import javax.swing.ImageIcon;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
 import lombok.NonNull;
-import net.runelite.api.Actor;
 import net.runelite.api.Client;
 import net.runelite.api.NPC;
 import net.runelite.api.NPCComposition;
@@ -86,7 +85,7 @@ import net.runelite.client.util.ImageUtil;
 )
 
 @Slf4j
-public class DeathTrackerPlugin extends Plugin
+public class PvPStatsPlugin extends Plugin
 {
 
 	@Inject
@@ -101,7 +100,7 @@ public class DeathTrackerPlugin extends Plugin
 	@Inject
 	private SpriteManager spriteManager;
 
-	private DeathTrackerPanel panel;
+	private PvPStatsPanel panel;
 	private NavigationButton navButton;
 
 	private static final ImageIcon SKULLED;
@@ -122,7 +121,6 @@ public class DeathTrackerPlugin extends Plugin
 
 	public static Widget gravestoneWidget = null;
 	private static WorldPoint deathLocation = null;
-	private NPCComposition currentNPCInteraction = null;
 	private Player currentPlayerInteraction = null;
 
 	public static Item[] currentInventory = null;
@@ -131,9 +129,9 @@ public class DeathTrackerPlugin extends Plugin
 	public static Item[] afterDeathEquipment = null;
 
 	static {
-		unskulledIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "unskulled.png");
-		skulledIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "skull.png");
-		navIcon = ImageUtil.loadImageResource(DeathTrackerPlugin.class, "icon.png");
+		unskulledIcon = ImageUtil.loadImageResource(PvPStatsPlugin.class, "unskulled.png");
+		skulledIcon = ImageUtil.loadImageResource(PvPStatsPlugin.class, "skull.png");
+		navIcon = ImageUtil.loadImageResource(PvPStatsPlugin.class, "icon.png");
 		SKULLED = new ImageIcon(skulledIcon);
 		UNSKULLED = new ImageIcon(unskulledIcon);
 	}
@@ -180,13 +178,13 @@ public class DeathTrackerPlugin extends Plugin
 	protected void startUp()
 	{
 
-		panel = new DeathTrackerPanel(this, itemManager);
+		panel = new PvPStatsPanel(this, itemManager);
 		panel.skullStatus.setIcon(UNSKULLED);
 
 		spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
 		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderSprite);
 		navButton = NavigationButton.builder()
-				.tooltip("Death Tracker")
+				.tooltip("PvP Statistics")
 				.icon(navIcon)
 				.priority(5)
 				.panel(panel)
@@ -199,7 +197,6 @@ public class DeathTrackerPlugin extends Plugin
 	protected void shutDown()
 	{
 		clientToolbar.removeNavigation(navButton);
-		currentNPCInteraction = null;
 		currentPlayerInteraction = null;
 	}
 
@@ -252,7 +249,7 @@ public class DeathTrackerPlugin extends Plugin
 	@Subscribe
 	public void onGameTick(GameTick event)
 	{
-		if ((currentNPCInteraction != null || currentPlayerInteraction != null) && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation))
+		if (currentPlayerInteraction != null && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation))
 		{
 			if (!RESPAWN_REGIONS.contains(client.getLocalPlayer().getWorldLocation().getRegionID()))
 			{
@@ -261,7 +258,6 @@ public class DeathTrackerPlugin extends Plugin
 
 				deathLocation = null;
 				currentPlayerInteraction = null;
-				currentNPCInteraction = null;
 				return;
 			}
 			getInventory(true);
@@ -269,24 +265,19 @@ public class DeathTrackerPlugin extends Plugin
 
 			deathLocation = null;
 			currentPlayerInteraction = null;
-			currentNPCInteraction = null;
 		}
 	}
 
 	@Subscribe
 	public void onMenuOptionClicked(MenuOptionClicked event)
 	{
-		NPC npc;
 		Player player;
 		int actorIndex = event.getId();
-		if(event.getMenuAction() == MenuAction.NPC_SECOND_OPTION || event.getMenuAction() == MenuAction.PLAYER_SECOND_OPTION)
+		if(event.getMenuAction() == MenuAction.PLAYER_SECOND_OPTION)
 		{
-			if (actorIndex < client.getCachedNPCs().length + 1 && (npc = client.getCachedNPCs()[actorIndex]) != null) {
-				currentPlayerInteraction = null;
-				currentNPCInteraction = npc.getComposition();
-			} else if (actorIndex < client.getCachedNPCs().length + 1 && (player = client.getCachedPlayers()[actorIndex]) != null) {
-				currentNPCInteraction = null;
+			if (actorIndex < client.getCachedPlayers().length + 1 && (player = client.getCachedPlayers()[actorIndex]) != null) {
 				currentPlayerInteraction = player;
+				panel.overallIcon.setToolTipText(player.getName());
 			}
 		}
 	}
@@ -323,10 +314,8 @@ public class DeathTrackerPlugin extends Plugin
 			itemsLostCollection.add(newItem);
 		}
 
-		if(currentNPCInteraction != null){
-			addDeath(currentNPCInteraction.getName(), currentNPCInteraction.getCombatLevel(), (pvpDeath ? DeathRecordType.PLAYER : DeathRecordType.NPC), itemsLostCollection);
-		}else if(currentPlayerInteraction != null) {
-			addDeath(currentPlayerInteraction.getName(), currentPlayerInteraction.getCombatLevel(), (pvpDeath ? DeathRecordType.PLAYER : DeathRecordType.NPC), itemsLostCollection);
+		if(currentPlayerInteraction != null && pvpDeath) {
+			addDeath(currentPlayerInteraction.getName(), currentPlayerInteraction.getCombatLevel(), PvPRecordType.DEATH, itemsLostCollection);
 		}
 	}
 
@@ -413,29 +402,29 @@ public class DeathTrackerPlugin extends Plugin
 		return w != null && !w.isHidden();
 	}
 
-	void addDeath(@NonNull String name, int combatLevel, DeathRecordType type, Collection<ItemStack> items)
+	void addDeath(@NonNull String name, int combatLevel, PvPRecordType type, Collection<ItemStack> items)
 	{
-		final DeathTrackerItem[] entries = buildEntries(stack(items));
+		final PvPStatsItem[] entries = buildEntries(stack(items));
 		SwingUtilities.invokeLater(() -> panel.add(name, type, combatLevel, entries));
 
 	}
 
-	private DeathTrackerItem buildDeathTrackerItem(int itemId, int quantity)
+	private PvPStatsItem buildDeathTrackerItem(int itemId, int quantity)
 	{
 		final ItemComposition itemComposition = itemManager.getItemComposition(itemId);
 		final int gePrice = itemManager.getItemPrice(itemId); /* Replace with cost of item retrieval */
-		return new DeathTrackerItem(
+		return new PvPStatsItem(
 				itemId,
 				itemComposition.getName(),
 				quantity,
 				gePrice);
 	}
 
-	private DeathTrackerItem[] buildEntries(final Collection<ItemStack> itemStacks)
+	private PvPStatsItem[] buildEntries(final Collection<ItemStack> itemStacks)
 	{
 		return itemStacks.stream()
 				.map(itemStack -> buildDeathTrackerItem(itemStack.getId(), itemStack.getQuantity()))
-				.toArray(DeathTrackerItem[]::new);
+				.toArray(PvPStatsItem[]::new);
 	}
 
 }

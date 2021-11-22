@@ -25,9 +25,8 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.deathtracker;
+package com.pvpstats;
 
-import static com.google.common.collect.Iterables.concat;
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
@@ -36,7 +35,6 @@ import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
-import java.util.Collection;
 import java.util.function.Predicate;
 import java.util.List;
 import javax.inject.Inject;
@@ -51,9 +49,6 @@ import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
 import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicButtonUI;
-import net.runelite.api.Item;
-import net.runelite.api.ItemID;
-import net.runelite.api.ItemComposition;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SpriteManager;
 import net.runelite.client.ui.ColorScheme;
@@ -66,7 +61,7 @@ import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.SwingUtil;
 import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 
-class DeathTrackerPanel extends PluginPanel
+class PvPStatsPanel extends PluginPanel
 {
     @Inject
     private SpriteManager spriteManager;
@@ -93,8 +88,6 @@ class DeathTrackerPanel extends PluginPanel
     public final JLabel overallCostLabel = new JLabel();
     public final JLabel overallIcon = new JLabel();
 
-    /* Details and actions */
-    private final JPanel actionsContainer = new JPanel();
     private final JLabel actionsWorldRiskLabel = new JLabel();
     private final JLabel actionsWorldLabel = new JLabel();
     private final JButton collapseBtn = new JButton();
@@ -102,13 +95,13 @@ class DeathTrackerPanel extends PluginPanel
     public final JLabel skullStatus = new JLabel();
 
     /* Individual record of each death */
-    private final List<DeathTrackerRecord> sessionRecords = new ArrayList<>();
-    private final List<DeathTrackerBox> boxes = new ArrayList<>();
+    private final List<PvPStatsRecord> sessionRecords = new ArrayList<>();
+    private final List<PvPStatsBox> boxes = new ArrayList<>();
 
     private final ItemManager itemManager;
 
     private String currentView;
-    private DeathRecordType currentType;
+    private PvPRecordType currentType;
     private boolean collapseAll = false;
 
     static {
@@ -119,7 +112,7 @@ class DeathTrackerPanel extends PluginPanel
         INVISIBLE_ICON = new ImageIcon(ImageUtil.alphaOffset(invisibleImg, -200));
     }
 
-    DeathTrackerPanel(final DeathTrackerPlugin plugin, final ItemManager itemManager)
+    PvPStatsPanel(final PvPStatsPlugin plugin, final ItemManager itemManager)
     {
         this.itemManager = itemManager;
 
@@ -131,6 +124,8 @@ class DeathTrackerPanel extends PluginPanel
         layoutPanel.setLayout(new BoxLayout(layoutPanel, BoxLayout.Y_AXIS));
         add(layoutPanel, BorderLayout.NORTH);
 
+        /* Details and actions */
+        JPanel actionsContainer = new JPanel();
         actionsContainer.setLayout(new FlowLayout(FlowLayout.LEFT));
         actionsContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         actionsContainer.setBorder(new EmptyBorder(0, 5, 0, 10));
@@ -208,7 +203,7 @@ class DeathTrackerPanel extends PluginPanel
         layoutPanel.add(overallPanel);
         layoutPanel.add(logsContainer);
 
-        errorPanel.setContent("Death Tracker", "You have not died yet.");
+        errorPanel.setContent("PvP Statistics", "You have not died nor killed another player yet.");
         add(errorPanel);
         updateOverall();
     }
@@ -221,7 +216,7 @@ class DeathTrackerPanel extends PluginPanel
     private boolean isAllCollapsed()
     {
         return boxes.stream()
-                .filter(DeathTrackerBox::isCollapsed)
+                .filter(PvPStatsBox::isCollapsed)
                 .count() == boxes.size();
     }
 
@@ -229,7 +224,7 @@ class DeathTrackerPanel extends PluginPanel
     {
         boolean isAllCollapsed = isAllCollapsed();
 
-        for (DeathTrackerBox box : boxes)
+        for (PvPStatsBox box : boxes)
         {
             if (isAllCollapsed)
             {
@@ -256,38 +251,37 @@ class DeathTrackerPanel extends PluginPanel
 
     public void updateActionsToolTip()
     {
-        skullStatus.setToolTipText((DeathTrackerPlugin.isSkulled || (DeathTrackerPlugin.wildyLevel > 1 && DeathTrackerPlugin.highRiskWorld) || (DeathTrackerPlugin.highRiskWorld && DeathTrackerPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
-        prayerStatus.setToolTipText(DeathTrackerPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
-        actionsWorldLabel.setText(htmlLabel("World Type: ", (DeathTrackerPlugin.pvpWorld ? "PvP":"Normal"), (DeathTrackerPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
-        actionsWorldRiskLabel.setText(htmlLabel("Risk Type: ", (DeathTrackerPlugin.highRiskWorld ? "High Risk":"Regular"), (DeathTrackerPlugin.highRiskWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
+        skullStatus.setToolTipText((PvPStatsPlugin.isSkulled || (PvPStatsPlugin.wildyLevel > 1 && PvPStatsPlugin.highRiskWorld) || (PvPStatsPlugin.highRiskWorld && PvPStatsPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
+        prayerStatus.setToolTipText(PvPStatsPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
+        actionsWorldLabel.setText(htmlLabelWorld("World Type: ", (PvPStatsPlugin.pvpWorld ? "PvP":"Normal"), (PvPStatsPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
+        actionsWorldRiskLabel.setText(htmlLabelWorld("Risk Type: ", (PvPStatsPlugin.highRiskWorld ? "High Risk":"Regular"), (PvPStatsPlugin.highRiskWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
     }
 
-    private static String htmlLabel(String key, long value)
+    private static String htmlLabelKD(String key, double value)
+    {
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, value);
+    }
+
+    private static String htmlLabelProfit(String key, long value)
     {
         final String valueStr = QuantityFormatter.quantityToStackSize(value);
         return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, valueStr);
     }
 
-    private static String htmlLabel(String key, String text, Color valueColor)
+    private static String htmlLabelWorld(String key, String text, Color valueColor)
     {
         return String.format(HTML_WORLD_TEMPLATE, ColorUtil.toHexColor(ColorScheme.BRAND_ORANGE) ,key, ColorUtil.toHexColor(valueColor), text);
     }
 
-    void add(final String eventName, final DeathRecordType type, final int actorLevel, DeathTrackerItem[] items)
+    void add(final String eventName, final PvPRecordType type, final int actorLevel, PvPStatsItem[] items)
     {
         final String subTitle;
-        if(type == DeathRecordType.OTHER)
-        {
-            subTitle = "(Unidentified)";
-        }
-        else
-        {
-            subTitle = actorLevel > -1 ? "(lvl-" + actorLevel + ")" : "";
-        }
-        final DeathTrackerRecord record = new DeathTrackerRecord(eventName, subTitle, type, items, 1);
+        subTitle = actorLevel > -1 ? "(lvl-" + actorLevel + ")" : "";
+        final PvPStatsRecord record = new PvPStatsRecord(eventName, subTitle, type, items, 1);
+
         sessionRecords.add(record);
 
-        DeathTrackerBox box = buildBox(record);
+        PvPStatsBox box = buildBox(record);
         if (box != null)
         {
             box.rebuild();
@@ -302,35 +296,33 @@ class DeathTrackerPanel extends PluginPanel
 
         sessionRecords.forEach(this::buildBox);
 
-        boxes.forEach(DeathTrackerBox::rebuild);
+        boxes.forEach(PvPStatsBox::rebuild);
         updateOverall();
         logsContainer.revalidate();
         logsContainer.repaint();
     }
 
-    private DeathTrackerBox buildBox(DeathTrackerRecord record)
+    private PvPStatsBox buildBox(PvPStatsRecord record)
     {
         if (!record.matches(currentView, currentType))
         {
             return null;
         }
 
-        for (DeathTrackerBox box : boxes)
+        for (PvPStatsBox box : boxes)
         {
             if (box.matches(record))
             {
                 logsContainer.setComponentZOrder(box, 0);
-                box.addDeath(record);
+                box.addEntry(record);
                 return box;
             }
         }
 
         remove(errorPanel);
-        actionsContainer.setVisible(true);
-        overallPanel.setVisible(true);
 
-        final DeathTrackerBox box = new DeathTrackerBox(itemManager, record.getTitle(), record.getType(), record.getSubTitle());
-        box.addDeath(record);
+        final PvPStatsBox box = new PvPStatsBox(itemManager, record.getTitle(), record.getType(), record.getSubTitle());
+        box.addEntry(record);
 
         JPopupMenu popupMenu = box.getComponentPopupMenu();
         if (popupMenu == null)
@@ -373,12 +365,13 @@ class DeathTrackerPanel extends PluginPanel
 
     private void updateOverall()
     {
-        long overallDeaths = 0;
-        long overallCost = 0;
+        double overallDeaths = 1;
+        double overallKills = 1;
+        long overallProfit = 0;
 
-        Iterable<DeathTrackerRecord> records = sessionRecords;
+        Iterable<PvPStatsRecord> records = sessionRecords;
 
-        for (DeathTrackerRecord record : records)
+        for (PvPStatsRecord record : records)
         {
             if (!record.matches(currentView, currentType))
             {
@@ -387,17 +380,31 @@ class DeathTrackerPanel extends PluginPanel
 
             int present = record.getItems().length;
 
-            for (DeathTrackerItem item : record.getItems())
+            for (PvPStatsItem item : record.getItems())
             {
-                overallCost += item.getTotalCost();
+                if(record.getType() == PvPRecordType.DEATH)
+                {
+                    overallProfit -= item.getTotalPrice();
+                }
+                else if(record.getType() == PvPRecordType.KILL)
+                {
+                    overallProfit += item.getTotalPrice();
+                }
             }
             if (present > 0)
             {
-                overallDeaths += record.getDeaths();
+                if(record.getType() == PvPRecordType.DEATH)
+                {
+                    overallDeaths += record.getValue();
+                }
+                else if(record.getType() == PvPRecordType.KILL)
+                {
+                overallKills += record.getValue();
+                }
             }
         }
-        overallDeathsLabel.setText(htmlLabel("Total Deaths: ", overallDeaths));
-        overallCostLabel.setText(htmlLabel("Total Cost: ", overallCost));
+        overallDeathsLabel.setText(htmlLabelKD("K/D: ", overallKills/overallDeaths));
+        overallCostLabel.setText(htmlLabelProfit("Total Profit: ", overallProfit));
         updateActionsToolTip();
         updateCollapseText();
     }
@@ -411,7 +418,7 @@ class DeathTrackerPanel extends PluginPanel
         if (result != JOptionPane.YES_OPTION) {
             return;
         }
-        Predicate<DeathTrackerRecord> match = r -> r.matches(currentView, currentType);
+        Predicate<PvPStatsRecord> match = r -> r.matches(currentView, currentType);
         sessionRecords.removeIf(match);
         boxes.removeIf(b -> b.matches(currentView, currentType));
         updateOverall();
@@ -420,7 +427,7 @@ class DeathTrackerPanel extends PluginPanel
         add(errorPanel);
     }
 
-    private void resetMatch(DeathTrackerBox box, DeathTrackerRecord record)
+    private void resetMatch(PvPStatsBox box, PvPStatsRecord record)
     {
         final int result = JOptionPane.showOptionDialog(overallPanel, "This will permanently delete the selected record from the client.",
                 "Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
@@ -430,7 +437,7 @@ class DeathTrackerPanel extends PluginPanel
             return;
         }
 
-        Predicate<DeathTrackerRecord> match = r -> r.matches(record.getTitle(), record.getType());
+        Predicate<PvPStatsRecord> match = r -> r.matches(record.getTitle(), record.getType());
         sessionRecords.removeIf(match);
         boxes.remove(box);
         updateOverall();
