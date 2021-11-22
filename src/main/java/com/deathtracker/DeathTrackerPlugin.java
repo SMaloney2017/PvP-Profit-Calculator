@@ -29,7 +29,6 @@ package com.deathtracker;
 
 import com.google.common.collect.ImmutableSet;
 import java.awt.image.BufferedImage;
-import java.time.Duration;
 import java.util.Arrays;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -43,7 +42,21 @@ import javax.swing.ImageIcon;
 import javax.swing.SwingUtilities;
 import lombok.extern.slf4j.Slf4j;
 import lombok.NonNull;
-import net.runelite.api.*;
+import net.runelite.api.Actor;
+import net.runelite.api.Client;
+import net.runelite.api.NPC;
+import net.runelite.api.NPCComposition;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.Player;
+import net.runelite.api.SpriteID;
+import net.runelite.api.SkullIcon;
+import net.runelite.api.GameState;
+import net.runelite.api.MenuAction;
+import net.runelite.api.Varbits;
+import net.runelite.api.WorldType;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ActorDeath;
@@ -75,6 +88,7 @@ import net.runelite.client.util.ImageUtil;
 @Slf4j
 public class DeathTrackerPlugin extends Plugin
 {
+
 	@Inject
 	private Client client;
 
