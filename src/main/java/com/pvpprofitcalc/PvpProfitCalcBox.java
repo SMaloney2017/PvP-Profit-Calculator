@@ -171,7 +171,6 @@ class PvpProfitCalcBox extends JPanel
                     : new PvpProfitCalcItem(mappedItemId, item.getName(), item.getQuantity(), item.getGePrice());
             items.add(mappedItem);
         }
-
     }
 
     void rebuild()

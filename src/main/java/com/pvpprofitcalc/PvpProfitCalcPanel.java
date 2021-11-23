@@ -34,6 +34,8 @@ import java.awt.event.MouseEvent;
 import java.awt.FlowLayout;
 import java.awt.GridLayout;
 import java.awt.image.BufferedImage;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.function.Predicate;
 import java.util.List;
@@ -71,12 +73,36 @@ class PvpProfitCalcPanel extends PluginPanel
     private static final ImageIcon VISIBLE_ICON;
     private static final ImageIcon INVISIBLE_ICON;
 
+    private static final String HTML_INTERACTION_TEMPLATE =
+            "<html>" +
+                    "<body style='color:%s'>" +
+                        "%s" +
+                        "<span style='color:white'>%s" +
+                            "<span style='color:%s'>%s</span>" +
+                        "</span>" +
+                    "</body>" +
+            "</html>";
     private static final String HTML_LABEL_TEMPLATE =
-            "<html><body style='color:%s'>%s<span style='color:white'>%s</span></body></html>";
+            "<html>" +
+                    "<body style='color:%s'>" +
+                            "%s" +
+                            "<span style='color:white'>%s</span>" +
+                    "</body>" +
+            "</html>";
     private static final String HTML_WORLD_TEMPLATE =
-            "<html><body style='color:%s'>%s<span style='color:%s'>%s</span></body></html>";
+            "<html>" +
+                    "<body style='color:%s'>" +
+                        "%s" +
+                        "<span style='color:%s'>%s</span>" +
+                    "</body>" +
+            "</html>";
     private static final String HTML_TOTALS_TEMPLATE =
-            "<html><body style='color:%s'><p>Total Kills: <span style='color:%s'>%s</span><p>Total Deaths: <span style='color:%s'>%s</span></body></html>";
+            "<html>" +
+                    "<body style='color:%s'>" +
+                            "<p>Total Kills: <span style='color:%s'>%s</span>" +
+                            "<p>Total Deaths: <span style='color:%s'>%s</span>" +
+                    "</body>" +
+            "</html>";
 
     /* Display errorPanel when there are no deaths */
     private final PluginErrorPanel errorPanel = new PluginErrorPanel();
@@ -92,6 +118,8 @@ class PvpProfitCalcPanel extends PluginPanel
 
     private final JLabel actionsWorldRiskLabel = new JLabel();
     private final JLabel actionsWorldTypeLabel = new JLabel();
+    private final JLabel interactionOpponentLabel = new JLabel();
+    private final JLabel interactionTimerLabel = new JLabel();
     private final JButton collapseBtn = new JButton();
     private final JLabel prayerStatus = new JLabel();
     public final JLabel skullStatus = new JLabel();
@@ -133,6 +161,7 @@ class PvpProfitCalcPanel extends PluginPanel
         actionsContainer.setBorder(new EmptyBorder(0, 5, 0, 10));
         actionsContainer.setVisible(true);
 
+
         prayerStatus.setIconTextGap(0);
         prayerStatus.setBorder(new EmptyBorder(0,0,0,5));
         prayerStatus.setBackground(ColorScheme.DARKER_GRAY_COLOR);
@@ -151,6 +180,24 @@ class PvpProfitCalcPanel extends PluginPanel
         actionsInfo.add(actionsWorldTypeLabel);
         actionsInfo.add(actionsWorldRiskLabel);
         actionsContainer.add(actionsInfo);
+
+        JPanel interactionDetailsContainer = new JPanel();
+        interactionDetailsContainer.setBorder(BorderFactory.createCompoundBorder(
+                BorderFactory.createMatteBorder(5, 0, 0, 0, ColorScheme.DARK_GRAY_COLOR),
+                BorderFactory.createEmptyBorder(8, 10, 8, 10)
+        ));
+        interactionDetailsContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        interactionDetailsContainer.setLayout(new BorderLayout());
+        interactionDetailsContainer.setVisible(true);
+
+        JPanel interactionsInfo = new JPanel();
+        interactionsInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+        interactionsInfo.setLayout(new GridLayout(2, 1));
+        interactionOpponentLabel.setFont(FontManager.getRunescapeSmallFont());
+        interactionTimerLabel.setFont(FontManager.getRunescapeSmallFont());
+        interactionsInfo.add(interactionOpponentLabel);
+        interactionsInfo.add(interactionTimerLabel);
+        interactionDetailsContainer.add(interactionsInfo);
 
         SwingUtil.removeButtonDecorations(collapseBtn);
         collapseBtn.setIcon(collapseAll ? INVISIBLE_ICON : VISIBLE_ICON);
@@ -202,82 +249,13 @@ class PvpProfitCalcPanel extends PluginPanel
 
         logsContainer.setLayout(new BoxLayout(logsContainer, BoxLayout.Y_AXIS));
         layoutPanel.add(actionsContainer);
+        layoutPanel.add(interactionDetailsContainer);
         layoutPanel.add(overallPanel);
         layoutPanel.add(logsContainer);
 
         errorPanel.setContent("PvP Profit Calculator", "You have not died in pvp or killed another player yet.");
         add(errorPanel);
         updateOverall();
-    }
-
-    void updateCollapseText()
-    {
-        collapseBtn.setSelected(isAllCollapsed());
-    }
-
-    private boolean isAllCollapsed()
-    {
-        return boxes.stream()
-                .filter(PvpProfitCalcBox::isCollapsed)
-                .count() == boxes.size();
-    }
-
-    private void changeCollapse()
-    {
-        boolean isAllCollapsed = isAllCollapsed();
-
-        for (PvpProfitCalcBox box : boxes)
-        {
-            if (isAllCollapsed)
-            {
-                box.expand();
-            }
-            else if (!box.isCollapsed())
-            {
-                box.collapse();
-            }
-        }
-
-        updateCollapseText();
-    }
-
-    void loadHeaderSprite(BufferedImage img)
-    {
-        overallIcon.setIcon(new ImageIcon(img));
-    }
-
-    void loadPrayerSprite(BufferedImage img)
-    {
-        prayerStatus.setIcon(new ImageIcon(img));
-    }
-
-    public void updateActionsToolTip()
-    {
-        skullStatus.setToolTipText((PvpProfitCalcPlugin.isSkulled || (PvpProfitCalcPlugin.wildyLevel > 1 && PvpProfitCalcPlugin.highRiskWorld) || (PvpProfitCalcPlugin.highRiskWorld && PvpProfitCalcPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
-        prayerStatus.setToolTipText(PvpProfitCalcPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
-        actionsWorldTypeLabel.setText(htmlLabelWorld("World Type: ", (PvpProfitCalcPlugin.pvpWorld ? "PvP":"Normal"), (PvpProfitCalcPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
-        actionsWorldRiskLabel.setText(htmlLabelWorld("Risk Type: ", (PvpProfitCalcPlugin.highRiskWorld ? "High Risk":"Regular"), (PvpProfitCalcPlugin.highRiskWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
-    }
-
-    private static String htmlLabelKD(String key, String value)
-    {
-        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, value);
-    }
-
-    private static String htmlLabelProfit(String key, long value)
-    {
-        final String v = QuantityFormatter.quantityToStackSize(value);
-        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, v);
-    }
-
-    private static String htmlLabelWorld(String key, String worldType, Color valueColor)
-    {
-        return String.format(HTML_WORLD_TEMPLATE, ColorUtil.toHexColor(ColorScheme.PROGRESS_INPROGRESS_COLOR) ,key, ColorUtil.toHexColor(valueColor), worldType);
-    }
-
-    private static String htmlLabelTotals(int value0, int value1)
-    {
-        return String.format(HTML_TOTALS_TEMPLATE, ColorUtil.toHexColor(ColorScheme.LIGHT_GRAY_COLOR) , ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), value0, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), value1);
     }
 
     void add(final String eventName, final PvpProfitCalcType type, final int actorLevel, PvpProfitCalcItem[] items)
@@ -410,11 +388,11 @@ class PvpProfitCalcPanel extends PluginPanel
                 }
             }
         }
-        String KD = String.format("%.2f", overallKills/overallDeaths);
-        overallKDLabel.setText(htmlLabelKD("K/D: ", KD));
-        overallProfitLabel.setText(htmlLabelProfit("Total Profit: ", overallProfit));
-        overallPanel.setToolTipText(htmlLabelTotals((int)(overallKills - 1), (int)(overallDeaths - 1)));
+
+        updateOverallToolTip(overallKills, overallDeaths, overallProfit);
         updateActionsToolTip();
+        updateInteractionsToolTip();
+        updateTimersToolTip();
         updateCollapseText();
     }
 
@@ -455,5 +433,108 @@ class PvpProfitCalcPanel extends PluginPanel
         if(sessionRecords.isEmpty()){
             add(errorPanel);
         }
+    }
+
+    void loadHeaderSprite(BufferedImage img)
+    {
+        overallIcon.setIcon(new ImageIcon(img));
+    }
+
+    void loadPrayerSprite(BufferedImage img)
+    {
+        prayerStatus.setIcon(new ImageIcon(img));
+    }
+
+    void updateCollapseText()
+    {
+        collapseBtn.setSelected(isAllCollapsed());
+    }
+
+    private boolean isAllCollapsed()
+    {
+        return boxes.stream()
+                .filter(PvpProfitCalcBox::isCollapsed)
+                .count() == boxes.size();
+    }
+
+    private void changeCollapse()
+    {
+        boolean isAllCollapsed = isAllCollapsed();
+
+        for (PvpProfitCalcBox box : boxes)
+        {
+            if (isAllCollapsed)
+            {
+                box.expand();
+            }
+            else if (!box.isCollapsed())
+            {
+                box.collapse();
+            }
+        }
+
+        updateCollapseText();
+    }
+
+    public void updateActionsToolTip()
+    {
+        skullStatus.setToolTipText((PvpProfitCalcPlugin.isSkulled || (PvpProfitCalcPlugin.wildyLevel > 1 && PvpProfitCalcPlugin.highRiskWorld) || (PvpProfitCalcPlugin.highRiskWorld && PvpProfitCalcPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
+        prayerStatus.setToolTipText(PvpProfitCalcPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
+        actionsWorldTypeLabel.setText(htmlLabelWorld("World Type: ", (PvpProfitCalcPlugin.pvpWorld ? "PvP":"Normal"), (PvpProfitCalcPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
+        actionsWorldRiskLabel.setText(htmlLabelWorld("Risk Type: ", (PvpProfitCalcPlugin.highRiskWorld ? "High Risk":"Regular"), (PvpProfitCalcPlugin.highRiskWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
+    }
+
+    public void updateInteractionsToolTip()
+    {
+        if(PvpProfitCalcPlugin.currentOpponentInteraction != null){
+            interactionOpponentLabel.setText(htmlLabelInteractions("Opponent: ", PvpProfitCalcPlugin.getCombatLevelColor() ,PvpProfitCalcPlugin.currentOpponentInteraction.getName(), " (Lvl-" + PvpProfitCalcPlugin.currentOpponentInteraction.getCombatLevel() + ")"));
+            return;
+        }
+        interactionOpponentLabel.setText(htmlLabelInteractions("Opponent: ", "White" , "None", ""));
+
+    }
+
+    public void updateTimersToolTip()
+    {
+        interactionTimerLabel.setText(htmlLabelTimers("Combat Timer: ", PvpProfitCalcPlugin.lastHitsplatTime != null ? 10 - Duration.between(PvpProfitCalcPlugin.lastHitsplatTime, Instant.now()).getSeconds() : Duration.ofSeconds(0).getSeconds()));
+    }
+
+    public void updateOverallToolTip(double overallKills, double overallDeaths, long overallProfit)
+    {
+        String KD = String.format("%.2f", overallKills/overallDeaths);
+        overallKDLabel.setText(htmlLabelKD("K/D: ", KD));
+        overallProfitLabel.setText(htmlLabelProfit("Total Profit: ", overallProfit));
+        overallPanel.setToolTipText(htmlLabelTotals((int)(overallKills - 1), (int)(overallDeaths - 1)));
+    }
+
+    private static String htmlLabelWorld(String key, String worldType, Color valueColor)
+    {
+        return String.format(HTML_WORLD_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT) ,key, ColorUtil.toHexColor(valueColor), worldType);
+    }
+
+    private static String htmlLabelInteractions(String key, String color, String name, String level)
+    {
+        return String.format(HTML_INTERACTION_TEMPLATE, ColorUtil.toHexColor(ColorScheme.LIGHT_GRAY_COLOR), key, name, color, level);
+    }
+
+    private static String htmlLabelTimers(String key, Long value)
+    {
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.LIGHT_GRAY_COLOR), key, value);
+    }
+
+    private static String htmlLabelKD(String key, String value)
+    {
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, value);
+    }
+
+    private static String htmlLabelProfit(String key, long value)
+    {
+        final String v = QuantityFormatter.quantityToStackSize(value);
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, v);
+    }
+
+    private static String htmlLabelTotals(int value0, int value1)
+    {
+        return String.format(HTML_TOTALS_TEMPLATE, ColorUtil.toHexColor(ColorScheme.LIGHT_GRAY_COLOR) , ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), value0, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), value1);
     }
 }
