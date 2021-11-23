@@ -10,5 +10,5 @@ such as world type, skull status, protect item, K/D Ratio, and profit gained/ lo
 - ✓ Calculate Profit gained/ Lost
 
 ### Bugs/ Concerns
-- Not certain to function correctly in multi or when Multiple other players are interacting with the user at their death (eg. following, trading, attacking).
-- K/D and deaths only changed when you lose items (eg. no death count when nothing lost).
+- Not certain to function correctly in multi or when multiple others are interacting with the user at their death (eg. following, trading, attacking).
+- K/D and deaths are only changed when you lose items (eg. no death count when nothing lost).
