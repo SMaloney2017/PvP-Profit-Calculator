@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.pvpstats;
+package com.pvpprofitcalc;
 
 import com.google.common.base.Strings;
 import java.awt.BorderLayout;
@@ -54,7 +54,7 @@ import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.Text;
 
-class PvPStatsBox extends JPanel
+class PvpProfitCalcBox extends JPanel
 {
     private static final int ITEMS_PER_ROW = 5;
     private static final int TITLE_PADDING = 5;
@@ -66,24 +66,23 @@ class PvPStatsBox extends JPanel
     private final ItemManager itemManager;
     @Getter(AccessLevel.PACKAGE)
     private final String id;
-    private final PvPRecordType deathRecordType;
+    private final PvpProfitCalcType pvpStatsType;
 
-    private int deaths;
-    private int kills;
+    private int value;
     @Getter
-    private final List<PvPStatsItem> items = new ArrayList<>();
+    private final List<PvpProfitCalcItem> items = new ArrayList<>();
 
     private long totalPrice;
 
-    PvPStatsBox(
+    PvpProfitCalcBox(
             final ItemManager itemManager,
             final String id,
-            final PvPRecordType pvpStatsType,
+            final PvpProfitCalcType pvpStatsType,
             @Nullable final String subtitle
     )
     {
         this.id = id;
-        this.deathRecordType = pvpStatsType;
+        this.pvpStatsType = pvpStatsType;
         this.itemManager = itemManager;
 
         setLayout(new BorderLayout(0, 1));
@@ -91,7 +90,7 @@ class PvPStatsBox extends JPanel
 
         logTitle.setLayout(new BoxLayout(logTitle, BoxLayout.X_AXIS));
         logTitle.setBorder(new EmptyBorder(7, 7, 7, 7));
-        logTitle.setBackground(pvpStatsType == PvPRecordType.DEATH ? ColorScheme.PROGRESS_ERROR_COLOR.darker():ColorScheme.DARKER_GRAY_COLOR.darker());
+        logTitle.setBackground(pvpStatsType == PvpProfitCalcType.KILL ? new Color(25, 25, 55) : new Color(55, 20, 20));
 
         JLabel titleLabel = new JLabel();
         titleLabel.setText(Text.removeTags(id));
@@ -124,63 +123,52 @@ class PvPStatsBox extends JPanel
         /* Include/ Ignore Item */
     }
 
-    public int getTotalDeaths()
+    public int getTotalValue()
     {
-        return deaths;
+        return value;
     }
 
-    public int getTotalKills()
+    boolean matches(final PvpProfitCalcRecord record)
     {
-        return kills;
+        return record.getTitle().equals(id) && record.getType() == pvpStatsType;
     }
 
-    boolean matches(final PvPStatsRecord record)
-    {
-        return record.getTitle().equals(id) && record.getType() == deathRecordType;
-    }
-
-    boolean matches(final String id, final PvPRecordType type)
+    boolean matches(final String id, final PvpProfitCalcType type)
     {
         if (id == null)
         {
             return true;
         }
 
-        return this.id.equals(id) && deathRecordType == type;
+        return this.id.equals(id) && pvpStatsType == type;
     }
 
-    void addEntry(final PvPStatsRecord record)
+    void addEntry(final PvpProfitCalcRecord record)
     {
         if (!matches(record))
         {
             throw new IllegalArgumentException(record.toString());
         }
 
-        if(record.getType() == PvPRecordType.DEATH)
-        {
-            deaths = record.getValue();
-        }else if(record.getType() == PvPRecordType.KILL)
-        {
-            kills = record.getValue();
-        }
+        value = record.getValue();
 
         outer:
-        for (PvPStatsItem item : record.getItems())
+        for (PvpProfitCalcItem item : record.getItems())
         {
-            final int mappedItemId = PvPStatsMap.map(item.getId(), item.getName());
+            final int mappedItemId = PvpProfitCalcMap.map(item.getId(), item.getName());
             for (int idx = 0; idx < items.size(); ++idx)
             {
-                PvPStatsItem i = items.get(idx);
+                PvpProfitCalcItem i = items.get(idx);
                 if (mappedItemId == i.getId())
                 {
-                    items.set(idx, new PvPStatsItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getGePrice()));
+                    items.set(idx, new PvpProfitCalcItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getGePrice()));
                     continue outer;
                 }
             }
 
-            final PvPStatsItem mappedItem = mappedItemId == item.getId()
+            final PvpProfitCalcItem mappedItem = mappedItemId == item.getId()
                     ? item
-                    : new PvPStatsItem(mappedItemId, item.getName(), item.getQuantity(), item.getGePrice());
+                    : new PvpProfitCalcItem(mappedItemId, item.getName(), item.getQuantity(), item.getGePrice());
             items.add(mappedItem);
         }
 
@@ -190,23 +178,13 @@ class PvPStatsBox extends JPanel
     {
         buildItems();
 
-        String priceTypeString = " Total: ";
+        String priceTypeString = (pvpStatsType == PvpProfitCalcType.DEATH ? "Total Loss: ": "Total Gain: ");
 
         priceLabel.setText(priceTypeString + QuantityFormatter.quantityToStackSize(totalPrice) + " gp");
         priceLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice) + " gp");
 
-        final long deaths = getTotalDeaths();
-        final long kills = getTotalKills();
-        if (deaths > 1)
-        {
-            subTitleLabel.setText("x " + deaths);
-            subTitleLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice / deaths) + " gp (average loss)");
-        }
-        else if(kills > 1)
-        {
-            subTitleLabel.setText("x " + kills);
-            subTitleLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice / kills) + " gp (average gain)");
-        }
+        final long value = getTotalValue();
+        subTitleLabel.setText("x " + value);
 
         validate();
         repaint();
@@ -249,7 +227,7 @@ class PvPStatsBox extends JPanel
     {
         totalPrice = 0;
 
-        List<PvPStatsItem> items = this.items;
+        List<PvpProfitCalcItem> items = this.items;
 
         /* Hide Ignored Items */
 
@@ -261,7 +239,7 @@ class PvPStatsBox extends JPanel
             return;
         }
 
-        ToLongFunction<PvPStatsItem> price = PvPStatsItem::getTotalPrice;
+        ToLongFunction<PvpProfitCalcItem> price = PvpProfitCalcItem::getTotalPrice;
 
         totalPrice = items.stream()
                 .mapToLong(price)
@@ -281,7 +259,7 @@ class PvPStatsBox extends JPanel
 
             if (i < items.size())
             {
-                final PvPStatsItem item = items.get(i);
+                final PvpProfitCalcItem item = items.get(i);
                 final JLabel imageLabel = new JLabel();
                 imageLabel.setToolTipText(buildToolTip(item));
                 imageLabel.setVerticalAlignment(SwingConstants.CENTER);
@@ -302,7 +280,7 @@ class PvPStatsBox extends JPanel
         itemContainer.repaint();
     }
 
-    private static String buildToolTip(PvPStatsItem item)
+    private static String buildToolTip(PvpProfitCalcItem item)
     {
         final String name = item.getName();
         final int quantity = item.getQuantity();

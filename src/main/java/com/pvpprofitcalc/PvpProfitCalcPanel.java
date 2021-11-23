@@ -25,7 +25,7 @@
  * SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
  */
 
-package com.pvpstats;
+package com.pvpprofitcalc;
 
 import java.awt.BorderLayout;
 import java.awt.FlowLayout;
@@ -61,7 +61,7 @@ import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.SwingUtil;
 import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 
-class PvPStatsPanel extends PluginPanel
+class PvpProfitCalcPanel extends PluginPanel
 {
     @Inject
     private SpriteManager spriteManager;
@@ -75,6 +75,8 @@ class PvPStatsPanel extends PluginPanel
             "<html><body style='color:%s'>%s<span style='color:white'>%s</span></body></html>";
     private static final String HTML_WORLD_TEMPLATE =
             "<html><body style='color:%s'>%s<span style='color:%s'>%s</span></body></html>";
+    private static final String HTML_TOTALS_TEMPLATE =
+            "<html><body style='color:%s'><p>Total Kills: <span style='color:%s'>%s</span><p>Total Deaths: <span style='color:%s'>%s</span></body></html>";
 
     /* Display errorPanel when there are no deaths */
     private final PluginErrorPanel errorPanel = new PluginErrorPanel();
@@ -84,9 +86,9 @@ class PvPStatsPanel extends PluginPanel
 
     /* Session data */
     private final JPanel overallPanel = new JPanel();
-    private final JLabel overallDeathsLabel = new JLabel();
-    public final JLabel overallCostLabel = new JLabel();
-    public final JLabel overallIcon = new JLabel();
+    public final JLabel overallKDLabel = new JLabel();
+    public final JLabel overallProfitLabel = new JLabel();
+    private final JLabel overallIcon = new JLabel();
 
     private final JLabel actionsWorldRiskLabel = new JLabel();
     private final JLabel actionsWorldLabel = new JLabel();
@@ -95,13 +97,13 @@ class PvPStatsPanel extends PluginPanel
     public final JLabel skullStatus = new JLabel();
 
     /* Individual record of each death */
-    private final List<PvPStatsRecord> sessionRecords = new ArrayList<>();
-    private final List<PvPStatsBox> boxes = new ArrayList<>();
+    private final List<PvpProfitCalcRecord> sessionRecords = new ArrayList<>();
+    private final List<PvpProfitCalcBox> boxes = new ArrayList<>();
 
     private final ItemManager itemManager;
 
     private String currentView;
-    private PvPRecordType currentType;
+    private PvpProfitCalcType currentType;
     private boolean collapseAll = false;
 
     static {
@@ -112,7 +114,7 @@ class PvPStatsPanel extends PluginPanel
         INVISIBLE_ICON = new ImageIcon(ImageUtil.alphaOffset(invisibleImg, -200));
     }
 
-    PvPStatsPanel(final PvPStatsPlugin plugin, final ItemManager itemManager)
+    PvpProfitCalcPanel(final PvpProfitCalcPlugin plugin, final ItemManager itemManager)
     {
         this.itemManager = itemManager;
 
@@ -178,10 +180,10 @@ class PvPStatsPanel extends PluginPanel
         overallInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         overallInfo.setLayout(new GridLayout(2, 1));
         overallInfo.setBorder(new EmptyBorder(2, 10, 2, 0));
-        overallDeathsLabel.setFont(FontManager.getRunescapeSmallFont());
-        overallCostLabel.setFont(FontManager.getRunescapeSmallFont());
-        overallInfo.add(overallDeathsLabel);
-        overallInfo.add(overallCostLabel);
+        overallKDLabel.setFont(FontManager.getRunescapeSmallFont());
+        overallProfitLabel.setFont(FontManager.getRunescapeSmallFont());
+        overallInfo.add(overallKDLabel);
+        overallInfo.add(overallProfitLabel);
         overallPanel.add(overallIcon, BorderLayout.WEST);
         overallPanel.add(overallInfo, BorderLayout.CENTER);
 
@@ -203,7 +205,7 @@ class PvPStatsPanel extends PluginPanel
         layoutPanel.add(overallPanel);
         layoutPanel.add(logsContainer);
 
-        errorPanel.setContent("PvP Statistics", "You have not died nor killed another player yet.");
+        errorPanel.setContent("PvP Profit Calculator", "You have not died in pvp or killed another player yet.");
         add(errorPanel);
         updateOverall();
     }
@@ -216,7 +218,7 @@ class PvPStatsPanel extends PluginPanel
     private boolean isAllCollapsed()
     {
         return boxes.stream()
-                .filter(PvPStatsBox::isCollapsed)
+                .filter(PvpProfitCalcBox::isCollapsed)
                 .count() == boxes.size();
     }
 
@@ -224,7 +226,7 @@ class PvPStatsPanel extends PluginPanel
     {
         boolean isAllCollapsed = isAllCollapsed();
 
-        for (PvPStatsBox box : boxes)
+        for (PvpProfitCalcBox box : boxes)
         {
             if (isAllCollapsed)
             {
@@ -251,37 +253,42 @@ class PvPStatsPanel extends PluginPanel
 
     public void updateActionsToolTip()
     {
-        skullStatus.setToolTipText((PvPStatsPlugin.isSkulled || (PvPStatsPlugin.wildyLevel > 1 && PvPStatsPlugin.highRiskWorld) || (PvPStatsPlugin.highRiskWorld && PvPStatsPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
-        prayerStatus.setToolTipText(PvPStatsPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
-        actionsWorldLabel.setText(htmlLabelWorld("World Type: ", (PvPStatsPlugin.pvpWorld ? "PvP":"Normal"), (PvPStatsPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
-        actionsWorldRiskLabel.setText(htmlLabelWorld("Risk Type: ", (PvPStatsPlugin.highRiskWorld ? "High Risk":"Regular"), (PvPStatsPlugin.highRiskWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
+        skullStatus.setToolTipText((PvpProfitCalcPlugin.isSkulled || (PvpProfitCalcPlugin.wildyLevel > 1 && PvpProfitCalcPlugin.highRiskWorld) || (PvpProfitCalcPlugin.highRiskWorld && PvpProfitCalcPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
+        prayerStatus.setToolTipText(PvpProfitCalcPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
+        actionsWorldLabel.setText(htmlLabelWorld("World Type: ", (PvpProfitCalcPlugin.pvpWorld ? "PvP":"Normal"), (PvpProfitCalcPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
+        actionsWorldRiskLabel.setText(htmlLabelWorld("Risk Type: ", (PvpProfitCalcPlugin.highRiskWorld ? "High Risk":"Regular"), (PvpProfitCalcPlugin.highRiskWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
     }
 
-    private static String htmlLabelKD(String key, double value)
+    private static String htmlLabelKD(String key, String value)
     {
         return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, value);
     }
 
     private static String htmlLabelProfit(String key, long value)
     {
-        final String valueStr = QuantityFormatter.quantityToStackSize(value);
-        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, valueStr);
+        final String v = QuantityFormatter.quantityToStackSize(value);
+        return String.format(HTML_LABEL_TEMPLATE, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), key, v);
     }
 
-    private static String htmlLabelWorld(String key, String text, Color valueColor)
+    private static String htmlLabelWorld(String key, String worldType, Color valueColor)
     {
-        return String.format(HTML_WORLD_TEMPLATE, ColorUtil.toHexColor(ColorScheme.BRAND_ORANGE) ,key, ColorUtil.toHexColor(valueColor), text);
+        return String.format(HTML_WORLD_TEMPLATE, ColorUtil.toHexColor(ColorScheme.PROGRESS_INPROGRESS_COLOR) ,key, ColorUtil.toHexColor(valueColor), worldType);
     }
 
-    void add(final String eventName, final PvPRecordType type, final int actorLevel, PvPStatsItem[] items)
+    private static String htmlLabelTotals(int value0, int value1)
+    {
+        return String.format(HTML_TOTALS_TEMPLATE, ColorUtil.toHexColor(ColorScheme.LIGHT_GRAY_COLOR) , ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), value0, ColorUtil.toHexColor(ColorScheme.GRAND_EXCHANGE_LIMIT), value1);
+    }
+
+    void add(final String eventName, final PvpProfitCalcType type, final int actorLevel, PvpProfitCalcItem[] items)
     {
         final String subTitle;
         subTitle = actorLevel > -1 ? "(lvl-" + actorLevel + ")" : "";
-        final PvPStatsRecord record = new PvPStatsRecord(eventName, subTitle, type, items, 1);
+        final PvpProfitCalcRecord record = new PvpProfitCalcRecord(eventName, subTitle, type, items, 1);
 
         sessionRecords.add(record);
 
-        PvPStatsBox box = buildBox(record);
+        PvpProfitCalcBox box = buildBox(record);
         if (box != null)
         {
             box.rebuild();
@@ -296,20 +303,20 @@ class PvPStatsPanel extends PluginPanel
 
         sessionRecords.forEach(this::buildBox);
 
-        boxes.forEach(PvPStatsBox::rebuild);
+        boxes.forEach(PvpProfitCalcBox::rebuild);
         updateOverall();
         logsContainer.revalidate();
         logsContainer.repaint();
     }
 
-    private PvPStatsBox buildBox(PvPStatsRecord record)
+    private PvpProfitCalcBox buildBox(PvpProfitCalcRecord record)
     {
         if (!record.matches(currentView, currentType))
         {
             return null;
         }
 
-        for (PvPStatsBox box : boxes)
+        for (PvpProfitCalcBox box : boxes)
         {
             if (box.matches(record))
             {
@@ -321,7 +328,7 @@ class PvPStatsPanel extends PluginPanel
 
         remove(errorPanel);
 
-        final PvPStatsBox box = new PvPStatsBox(itemManager, record.getTitle(), record.getType(), record.getSubTitle());
+        final PvpProfitCalcBox box = new PvpProfitCalcBox(itemManager, record.getTitle(), record.getType(), record.getSubTitle());
         box.addEntry(record);
 
         JPopupMenu popupMenu = box.getComponentPopupMenu();
@@ -369,9 +376,9 @@ class PvPStatsPanel extends PluginPanel
         double overallKills = 1;
         long overallProfit = 0;
 
-        Iterable<PvPStatsRecord> records = sessionRecords;
+        Iterable<PvpProfitCalcRecord> records = sessionRecords;
 
-        for (PvPStatsRecord record : records)
+        for (PvpProfitCalcRecord record : records)
         {
             if (!record.matches(currentView, currentType))
             {
@@ -380,31 +387,33 @@ class PvPStatsPanel extends PluginPanel
 
             int present = record.getItems().length;
 
-            for (PvPStatsItem item : record.getItems())
+            for (PvpProfitCalcItem item : record.getItems())
             {
-                if(record.getType() == PvPRecordType.DEATH)
+                if(record.getType() == PvpProfitCalcType.DEATH)
                 {
                     overallProfit -= item.getTotalPrice();
                 }
-                else if(record.getType() == PvPRecordType.KILL)
+                else if(record.getType() == PvpProfitCalcType.KILL)
                 {
                     overallProfit += item.getTotalPrice();
                 }
             }
             if (present > 0)
             {
-                if(record.getType() == PvPRecordType.DEATH)
+                if(record.getType() == PvpProfitCalcType.DEATH)
                 {
                     overallDeaths += record.getValue();
                 }
-                else if(record.getType() == PvPRecordType.KILL)
+                else if(record.getType() == PvpProfitCalcType.KILL)
                 {
                 overallKills += record.getValue();
                 }
             }
         }
-        overallDeathsLabel.setText(htmlLabelKD("K/D: ", overallKills/overallDeaths));
-        overallCostLabel.setText(htmlLabelProfit("Total Profit: ", overallProfit));
+        String KD = String.format("%.2f", overallKills/overallDeaths);
+        overallKDLabel.setText(htmlLabelKD("K/D: ", KD));
+        overallProfitLabel.setText(htmlLabelProfit("Total Profit: ", overallProfit));
+        overallPanel.setToolTipText(htmlLabelTotals((int)(overallKills - 1), (int)(overallDeaths - 1)));
         updateActionsToolTip();
         updateCollapseText();
     }
@@ -418,7 +427,7 @@ class PvPStatsPanel extends PluginPanel
         if (result != JOptionPane.YES_OPTION) {
             return;
         }
-        Predicate<PvPStatsRecord> match = r -> r.matches(currentView, currentType);
+        Predicate<PvpProfitCalcRecord> match = r -> r.matches(currentView, currentType);
         sessionRecords.removeIf(match);
         boxes.removeIf(b -> b.matches(currentView, currentType));
         updateOverall();
@@ -427,7 +436,7 @@ class PvPStatsPanel extends PluginPanel
         add(errorPanel);
     }
 
-    private void resetMatch(PvPStatsBox box, PvPStatsRecord record)
+    private void resetMatch(PvpProfitCalcBox box, PvpProfitCalcRecord record)
     {
         final int result = JOptionPane.showOptionDialog(overallPanel, "This will permanently delete the selected record from the client.",
                 "Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
@@ -437,7 +446,7 @@ class PvPStatsPanel extends PluginPanel
             return;
         }
 
-        Predicate<PvPStatsRecord> match = r -> r.matches(record.getTitle(), record.getType());
+        Predicate<PvpProfitCalcRecord> match = r -> r.matches(record.getTitle(), record.getType());
         sessionRecords.removeIf(match);
         boxes.remove(box);
         updateOverall();

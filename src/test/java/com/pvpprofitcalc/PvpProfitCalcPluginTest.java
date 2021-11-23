@@ -1,13 +1,13 @@
-package com.pvpstats;
+package com.pvpprofitcalc;
 
 import net.runelite.client.RuneLite;
 import net.runelite.client.externalplugins.ExternalPluginManager;
 
-public class PvPStatsPluginTest
+public class PvpProfitCalcPluginTest
 {
 	public static void main(String[] args) throws Exception
 	{
-		ExternalPluginManager.loadBuiltin(PvPStatsPlugin.class);
+		ExternalPluginManager.loadBuiltin(PvpProfitCalcPlugin.class);
 		RuneLite.main(args);
 	}
 }
