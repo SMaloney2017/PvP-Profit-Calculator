@@ -278,8 +278,6 @@ public class PvpProfitCalcPlugin extends Plugin
 			currentPlayerInteraction = null;
 			currentOpponentInteraction = null;
 			lastHitsplatTime = null;
-			panel.overallProfitLabel.setToolTipText("");
-			panel.overallKDLabel.setToolTipText("");
 		}
 
 		if (currentPlayerInteraction != null && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation))
