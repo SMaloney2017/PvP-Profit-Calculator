@@ -28,16 +28,17 @@
 package com.pvpprofitcalc;
 
 import java.awt.BorderLayout;
-import java.awt.FlowLayout;
-import java.awt.GridLayout;
 import java.awt.Color;
 import java.awt.event.MouseAdapter;
 import java.awt.event.MouseEvent;
+import java.awt.FlowLayout;
+import java.awt.GridLayout;
 import java.awt.image.BufferedImage;
 import java.util.ArrayList;
 import java.util.function.Predicate;
 import java.util.List;
 import javax.inject.Inject;
+import javax.swing.border.EmptyBorder;
 import javax.swing.BorderFactory;
 import javax.swing.BoxLayout;
 import javax.swing.ImageIcon;
@@ -47,19 +48,18 @@ import javax.swing.JMenuItem;
 import javax.swing.JOptionPane;
 import javax.swing.JPanel;
 import javax.swing.JPopupMenu;
-import javax.swing.border.EmptyBorder;
 import javax.swing.plaf.basic.BasicButtonUI;
 import net.runelite.client.game.ItemManager;
 import net.runelite.client.game.SpriteManager;
+import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 import net.runelite.client.ui.ColorScheme;
+import net.runelite.client.ui.components.PluginErrorPanel;
 import net.runelite.client.ui.FontManager;
 import net.runelite.client.ui.PluginPanel;
-import net.runelite.client.ui.components.PluginErrorPanel;
 import net.runelite.client.util.ColorUtil;
 import net.runelite.client.util.ImageUtil;
 import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.SwingUtil;
-import net.runelite.client.plugins.loottracker.LootTrackerPlugin;
 
 class PvpProfitCalcPanel extends PluginPanel
 {
@@ -91,7 +91,7 @@ class PvpProfitCalcPanel extends PluginPanel
     private final JLabel overallIcon = new JLabel();
 
     private final JLabel actionsWorldRiskLabel = new JLabel();
-    private final JLabel actionsWorldLabel = new JLabel();
+    private final JLabel actionsWorldTypeLabel = new JLabel();
     private final JButton collapseBtn = new JButton();
     private final JLabel prayerStatus = new JLabel();
     public final JLabel skullStatus = new JLabel();
@@ -146,9 +146,9 @@ class PvpProfitCalcPanel extends PluginPanel
         JPanel actionsInfo = new JPanel();
         actionsInfo.setBackground(ColorScheme.DARKER_GRAY_COLOR);
         actionsInfo.setLayout(new GridLayout(2, 1));
-        actionsWorldLabel.setFont(FontManager.getRunescapeSmallFont());
+        actionsWorldTypeLabel.setFont(FontManager.getRunescapeSmallFont());
         actionsWorldRiskLabel.setFont(FontManager.getRunescapeSmallFont());
-        actionsInfo.add(actionsWorldLabel);
+        actionsInfo.add(actionsWorldTypeLabel);
         actionsInfo.add(actionsWorldRiskLabel);
         actionsContainer.add(actionsInfo);
 
@@ -255,7 +255,7 @@ class PvpProfitCalcPanel extends PluginPanel
     {
         skullStatus.setToolTipText((PvpProfitCalcPlugin.isSkulled || (PvpProfitCalcPlugin.wildyLevel > 1 && PvpProfitCalcPlugin.highRiskWorld) || (PvpProfitCalcPlugin.highRiskWorld && PvpProfitCalcPlugin.pvpWorld)) ? "Skulled" : "Unskulled");
         prayerStatus.setToolTipText(PvpProfitCalcPlugin.protectingItem ? "Protect Item Enabled" : "Protect Item Disabled");
-        actionsWorldLabel.setText(htmlLabelWorld("World Type: ", (PvpProfitCalcPlugin.pvpWorld ? "PvP":"Normal"), (PvpProfitCalcPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
+        actionsWorldTypeLabel.setText(htmlLabelWorld("World Type: ", (PvpProfitCalcPlugin.pvpWorld ? "PvP":"Normal"), (PvpProfitCalcPlugin.pvpWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
         actionsWorldRiskLabel.setText(htmlLabelWorld("Risk Type: ", (PvpProfitCalcPlugin.highRiskWorld ? "High Risk":"Regular"), (PvpProfitCalcPlugin.highRiskWorld ? ColorScheme.PROGRESS_ERROR_COLOR:ColorScheme.PROGRESS_COMPLETE_COLOR)));
     }
 

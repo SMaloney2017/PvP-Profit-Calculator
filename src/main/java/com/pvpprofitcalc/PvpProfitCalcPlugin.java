@@ -31,14 +31,14 @@ import com.google.common.collect.ImmutableSet;
 import java.awt.image.BufferedImage;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.Arrays;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
 import java.util.List;
-import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
+import java.util.Set;
 import javax.inject.Inject;
 import javax.swing.ImageIcon;
 import javax.swing.SwingUtilities;
@@ -46,30 +46,30 @@ import lombok.extern.slf4j.Slf4j;
 import lombok.NonNull;
 import net.runelite.api.Actor;
 import net.runelite.api.Client;
-import net.runelite.api.InventoryID;
-import net.runelite.api.Item;
-import net.runelite.api.ItemContainer;
-import net.runelite.api.ItemComposition;
-import net.runelite.api.Player;
-import net.runelite.api.SpriteID;
-import net.runelite.api.SkullIcon;
-import net.runelite.api.GameState;
-import net.runelite.api.Hitsplat.HitsplatType;
-import net.runelite.api.Varbits;
-import net.runelite.api.WorldType;
 import net.runelite.api.coords.LocalPoint;
 import net.runelite.api.coords.WorldPoint;
 import net.runelite.api.events.ActorDeath;
 import net.runelite.api.events.GameStateChanged;
 import net.runelite.api.events.GameTick;
 import net.runelite.api.events.HitsplatApplied;
-import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.InteractingChanged;
+import net.runelite.api.events.ItemContainerChanged;
 import net.runelite.api.events.VarbitChanged;
 import net.runelite.api.events.WidgetLoaded;
+import net.runelite.api.GameState;
+import net.runelite.api.Hitsplat.HitsplatType;
+import net.runelite.api.InventoryID;
+import net.runelite.api.Item;
+import net.runelite.api.ItemComposition;
+import net.runelite.api.ItemContainer;
+import net.runelite.api.Player;
+import net.runelite.api.SkullIcon;
+import net.runelite.api.SpriteID;
+import net.runelite.api.Varbits;
 import net.runelite.api.widgets.Widget;
 import net.runelite.api.widgets.WidgetID;
 import net.runelite.api.widgets.WidgetInfo;
+import net.runelite.api.WorldType;
 import net.runelite.client.eventbus.Subscribe;
 import net.runelite.client.events.PlayerLootReceived;
 import net.runelite.client.game.ItemManager;
@@ -83,7 +83,7 @@ import net.runelite.client.util.ImageUtil;
 
 @PluginDescriptor(
 	name = "PvP Statistics",
-	description = "Logs K/D, profit/ loss, and other PvP related information during the session.",
+	description = "Logs K/D, profits, losses, and other PvP related information during the session.",
 	enabledByDefault = false
 )
 
@@ -209,6 +209,8 @@ public class PvpProfitCalcPlugin extends Plugin
 	{
 		clientToolbar.removeNavigation(navButton);
 		currentPlayerInteraction = null;
+		currentOpponentInteraction = null;
+		lastHitsplatTime = null;
 	}
 
 	@Subscribe
@@ -275,9 +277,7 @@ public class PvpProfitCalcPlugin extends Plugin
 	{
 		if (lastHitsplatTime != null && Duration.between(lastHitsplatTime, Instant.now()).compareTo(WAIT) > 0)
 		{
-			currentPlayerInteraction = null;
-			currentOpponentInteraction = null;
-			lastHitsplatTime = null;
+			nullInteractions();
 		}
 
 		if (currentPlayerInteraction != null && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation))
@@ -289,13 +289,15 @@ public class PvpProfitCalcPlugin extends Plugin
 
 				deathLocation = null;
 				currentPlayerInteraction = null;
+				currentOpponentInteraction = null;
+				lastHitsplatTime = null;
 				return;
 			}
 			getInventory(true);
 			processItemsLost();
 
 			deathLocation = null;
-			currentPlayerInteraction = null;
+			nullInteractions();
 		}
 	}
 
@@ -391,7 +393,7 @@ public class PvpProfitCalcPlugin extends Plugin
 			{
 				addEntry(currentOpponentInteraction.getName(), currentOpponentInteraction.getCombatLevel(), PvpProfitCalcType.DEATH, itemsLost);
 			}
-			else if (currentPlayerInteraction != null)
+			else if (currentPlayerInteraction != null) //maybe not necessary?
 			{
 				addEntry(currentPlayerInteraction.getName(), currentPlayerInteraction.getCombatLevel(), PvpProfitCalcType.DEATH, itemsLost);
 			}
@@ -483,10 +485,9 @@ public class PvpProfitCalcPlugin extends Plugin
 
 	void addEntry(@NonNull String name, int combatLevel, PvpProfitCalcType type, Collection<ItemStack> items)
 	{
-		currentPlayerInteraction = null;
+		nullInteractions();
 		final PvpProfitCalcItem[] entries = buildEntries(stack(items));
 		SwingUtilities.invokeLater(() -> panel.add(name, type, combatLevel, entries));
-
 	}
 
 	private PvpProfitCalcItem buildDeathTrackerItem(int itemId, int quantity)
@@ -505,6 +506,12 @@ public class PvpProfitCalcPlugin extends Plugin
 		return itemStacks.stream()
 				.map(itemStack -> buildDeathTrackerItem(itemStack.getId(), itemStack.getQuantity()))
 				.toArray(PvpProfitCalcItem[]::new);
+	}
+
+	private void nullInteractions(){
+		currentPlayerInteraction = null;
+		currentOpponentInteraction = null;
+		lastHitsplatTime = null;
 	}
 
 }
