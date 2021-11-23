@@ -315,14 +315,10 @@ public class PvpProfitCalcPlugin extends Plugin
 		if (event.getSource().equals(client.getLocalPlayer()))
 		{
 			currentPlayerInteraction = event.getTarget();
-			panel.overallProfitLabel.setToolTipText(currentPlayerInteraction.getName());
-
 		}
 		else if (event.getTarget().equals(client.getLocalPlayer()))
 		{
 			currentOpponentInteraction = event.getSource();
-			panel.overallKDLabel.setToolTipText(currentOpponentInteraction.getName());
-
 		}
 	}
 
