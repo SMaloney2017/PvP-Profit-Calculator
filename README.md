@@ -2,7 +2,7 @@
 A "Loot Tracker"-like plugin for logging PvP kills/ deaths in RuneLite as well as returning useful information
 such as world type, skull status, protect item, K/D Ratio, and profit gained/ lost.
 
-Works in all normal use cases during singles combat although bugs while determining interactions occur. 
+Works in all normal use cases during singles combat although bugs while determining interactions can occur. 
 
 ### Goals
 - ✓ Show basic world information, skull status, and item protection
