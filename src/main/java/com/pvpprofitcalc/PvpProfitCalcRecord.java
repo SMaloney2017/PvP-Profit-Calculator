@@ -30,8 +30,7 @@ import lombok.NonNull;
 import lombok.Value;
 
 @Value
-class PvpProfitCalcRecord
-{
+class PvpProfitCalcRecord {
     @NonNull
     String title;
     String subTitle;
@@ -40,10 +39,8 @@ class PvpProfitCalcRecord
     int value;
 
 
-    boolean matches(final String id, PvpProfitCalcType type)
-    {
-        if (id == null)
-        {
+    boolean matches(final String id, PvpProfitCalcType type) {
+        if (id == null) {
             return true;
         }
 

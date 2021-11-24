@@ -25,8 +25,7 @@
 
 package com.pvpprofitcalc;
 
-public enum PvpProfitCalcType
-{
+enum PvpProfitCalcType {
     KILL,
     DEATH
 }

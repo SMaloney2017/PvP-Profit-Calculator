@@ -33,15 +33,13 @@ import lombok.Getter;
 @AllArgsConstructor
 @Getter
 @EqualsAndHashCode
-class PvpProfitCalcItem
-{
+class PvpProfitCalcItem {
     private final int id;
     private final String name;
     private int quantity;
     private final int GePrice;
 
-    long getTotalPrice()
-    {
+    long getTotalPrice() {
         return (long) GePrice * quantity;
     }
 
