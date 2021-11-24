@@ -88,7 +88,7 @@ class PvpProfitCalcBox extends JPanel {
 
         logTitle.setLayout(new BoxLayout(logTitle, BoxLayout.X_AXIS));
         logTitle.setBorder(new EmptyBorder(7, 7, 7, 7));
-        logTitle.setBackground(pvpStatsType == PvpProfitCalcType.KILL ? ColorScheme.DARKER_GRAY_COLOR.darker() : new Color(180, 35, 35));
+        logTitle.setBackground(pvpStatsType == PvpProfitCalcType.KILL ? ColorScheme.DARKER_GRAY_COLOR.darker() : new Color(130, 25, 25, 255));
 
         JLabel titleLabel = new JLabel();
         titleLabel.setText(Text.removeTags(id));
@@ -141,7 +141,7 @@ class PvpProfitCalcBox extends JPanel {
             throw new IllegalArgumentException(record.toString());
         }
 
-        value = record.getValue();
+        value += record.getValue();
 
         outer:
         for (PvpProfitCalcItem item: record.getItems()) {

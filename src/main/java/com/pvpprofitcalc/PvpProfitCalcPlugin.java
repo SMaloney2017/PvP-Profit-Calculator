@@ -91,7 +91,8 @@ import net.runelite.client.util.ImageUtil;
 
 @Slf4j
 public class PvpProfitCalcPlugin extends Plugin {
-	private final Duration WAIT = Duration.ofSeconds(10);
+	private final Duration PVP_WAIT = Duration.ofSeconds(10);
+	private final Duration ACTION_WAIT = Duration.ofSeconds(5);
 
 	@Inject
 	private Client client;
@@ -146,14 +147,6 @@ public class PvpProfitCalcPlugin extends Plugin {
 
 	private static final Set < Integer > LAST_MAN_STANDING_REGIONS = ImmutableSet.of(13658, 13659, 13660, 13914, 13915, 13916, 13918, 13919, 13920, 14174, 14175, 14176, 14430, 14431, 14432);
 	private static final Set < Integer > SOUL_WARS_REGIONS = ImmutableSet.of(8493, 8749, 9005);
-	private static final Set < Integer > RESPAWN_REGIONS = ImmutableSet.of(
-			6457, // Kourend
-			12850, // Lumbridge
-			11828, // Falador
-			12342, // Edgeville
-			11062, // Camelot
-			13150, 12894 // Prifddinas
-	);
 
 	private static Collection < ItemStack > stack(Collection < ItemStack > items) {
 		final List < ItemStack > list = new ArrayList < > ();
@@ -248,42 +241,30 @@ public class PvpProfitCalcPlugin extends Plugin {
 	public void onWidgetLoaded(WidgetLoaded event) {
 		if ((event.getGroupId() == WidgetID.GRAVESTONE_GROUP_ID)) {
 			gravestoneWidget = client.getWidget(event.getGroupId());
-		} else if ((event.getGroupId() == WidgetID.GRAVESTONE_GROUP_ID)) {
-			gravestoneWidget = client.getWidget(event.getGroupId());
 		}
 	}
 
 	@Subscribe
 	public void onGameTick(GameTick event) {
-		if (currentOpponentInteraction != null && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation)) {
-			if (!RESPAWN_REGIONS.contains(client.getLocalPlayer().getWorldLocation().getRegionID())) {
-				log.debug("Died, but did not respawn in a known respawn location: {}",
-						client.getLocalPlayer().getWorldLocation().getRegionID());
-
-				deathLocation = null;
+		if (lastHitsplatTime != null) {
+			panel.updateTimersToolTip();
+			if (Duration.between(lastHitsplatTime, Instant.now()).compareTo(PVP_WAIT) > 0) {
 				nullInteractions();
-				return;
 			}
+		}
+
+		if (currentOpponentInteraction != null && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation)) {
 			getInventoryAfterDeath();
 			processItemsLost();
 
 			deathLocation = null;
 			nullInteractions();
 		}
-
-		if (lastHitsplatTime != null) {
-			panel.updateTimersToolTip();
-			if (Duration.between(lastHitsplatTime, Instant.now()).compareTo(WAIT) > 0) {
-				nullInteractions();
-			}
-		}
 	}
 
 	@Subscribe
 	public void onInteractingChanged(InteractingChanged event) {
-		if (currentPlayerInteraction != null &&
-				currentOpponentInteraction != null &&
-				isInPvpCombat() ||
+		if (isInPvpCombat() ||
 				!(event.getSource() instanceof Player) ||
 				!(event.getTarget() instanceof Player)) {
 			return;
@@ -369,7 +350,11 @@ public class PvpProfitCalcPlugin extends Plugin {
 	}
 
 	private boolean isInPvpCombat() {
-		return currentPlayerInteraction == currentOpponentInteraction;
+		return (
+				currentOpponentInteraction != null &&
+						currentOpponentInteraction.equals(currentPlayerInteraction) &&
+						lastHitsplatTime != null &&
+						Duration.between(lastHitsplatTime, Instant.now()).compareTo(ACTION_WAIT) > 0);
 	}
 
 	private void getInventory() {
@@ -399,6 +384,9 @@ public class PvpProfitCalcPlugin extends Plugin {
 			itemsLost.add(newItem);
 		}
 
+		ItemStack bones = new ItemStack(526, 1, LocalPoint.fromWorld(client, deathLocation));
+		itemsLost.add(bones); /* Only for testing to log deaths where the player loses nothing */
+
 		if (pvpDeath) {
 			if (currentOpponentInteraction != null) {
 				addEntry(currentOpponentInteraction.getName(), currentOpponentInteraction.getCombatLevel(), PvpProfitCalcType.DEATH, itemsLost);
@@ -408,6 +396,7 @@ public class PvpProfitCalcPlugin extends Plugin {
 
 	private void nullInteractions() {
 		currentOpponentInteraction = null;
+		currentPlayerInteraction = null;
 		lastHitsplatTime = null;
 		panel.updateTimersToolTip();
 		panel.updateInteractionsToolTip();
@@ -474,7 +463,7 @@ public class PvpProfitCalcPlugin extends Plugin {
 
 	private PvpProfitCalcItem buildDeathTrackerItem(int itemId, int quantity) {
 		final ItemComposition itemComposition = itemManager.getItemComposition(itemId);
-		final int gePrice = itemManager.getItemPrice(itemId); /* Replace with cost of item retrieval */
+		final int gePrice = itemManager.getItemPrice(itemId);
 		return new PvpProfitCalcItem(
 				itemId,
 				itemComposition.getName(),
