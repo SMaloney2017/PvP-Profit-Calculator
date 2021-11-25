@@ -35,9 +35,7 @@ import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
 import java.util.EnumSet;
-import java.util.HashMap;
 import java.util.List;
-import java.util.Map;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 import java.util.Set;
@@ -85,7 +83,7 @@ import net.runelite.client.util.ImageUtil;
 
 @PluginDescriptor(
 		name = "PvP Statistics",
-		description = "Logs K/D, profits, losses, and other PvP related information during the session.",
+		description = "Logs K/D, profits, losses, and other PvP related information during a session.",
 		enabledByDefault = false
 )
 
@@ -186,6 +184,7 @@ public class PvpProfitCalcPlugin extends Plugin {
 				.build();
 
 		clientToolbar.addNavigation(navButton);
+
 	}
 
 	@Override
@@ -385,7 +384,7 @@ public class PvpProfitCalcPlugin extends Plugin {
 		}
 
 		ItemStack bones = new ItemStack(526, 1, LocalPoint.fromWorld(client, deathLocation));
-		itemsLost.add(bones); /* Only for testing to log deaths where the player loses nothing */
+		itemsLost.add(bones);
 
 		if (pvpDeath) {
 			if (currentOpponentInteraction != null) {
