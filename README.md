@@ -4,7 +4,7 @@ such as world type, skull status, protect item, K/D Ratio, and profit gained/ lo
 
 ![pvp-profit-calc](https://user-images.githubusercontent.com/60162255/143652128-92c47109-268f-4480-bb69-ba6da58fb20b.png)
 
-### Features
+#### Features
 - **Skull Status** *(Skulled/ Unskulled)*
 - **Protect Item Status** *(Enabled/ Disabled)*
 - **World Type** *(PvP/ Normal, High-Risk/ Regular)*
@@ -27,4 +27,4 @@ such as world type, skull status, protect item, K/D Ratio, and profit gained/ lo
 - Map items that do not appear on the GE to their respective store or alch values (e.g. Barrows gloves, Avernic defender)
 
 ### Bugs to fix/ Concerns
-- 📓 Not certain to function correctly in multi or when multiple others are interacting (non-combat, e.g. trading or following) with the user at their death (e.g. following, trading, attacking).
+- 📓 Not certain to function correctly in multi or when multiple others are interacting with the user (non-combat, e.g. trading or following) at their death (pvp, pvm, or other).
