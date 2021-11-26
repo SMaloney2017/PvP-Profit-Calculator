@@ -29,8 +29,6 @@ package com.pvpprofitcalc;
 
 import com.google.common.collect.ImmutableSet;
 import java.awt.image.BufferedImage;
-import java.io.*;
-import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -82,7 +80,6 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
-import static net.runelite.client.RuneLite.RUNELITE_DIR;
 
 @PluginDescriptor(
 		name = "PvP Statistics",
