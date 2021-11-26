@@ -22,5 +22,9 @@ such as world type, skull status, protect item, K/D Ratio, and profit gained/ lo
 ✓ Calculate Profit gained/ Lost <br>
 ✓ Save log per active user (Submit and retrieve data from local file per username) <br>
 
+
+#### To-Do
+- Map items that do not appear on the GE to their respective store or alch values (e.g. Barrows gloves, Avernic defender)
+
 ### Bugs to fix/ Concerns
 - 📓 Not certain to function correctly in multi or when multiple others are interacting (non-combat, e.g. trading or following) with the user at their death (e.g. following, trading, attacking).
