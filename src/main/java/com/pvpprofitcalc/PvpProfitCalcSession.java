@@ -61,33 +61,24 @@ public class PvpProfitCalcSession {
     }
 
     public void rebuildSessionFile(Collection < PvpProfitCalcRecord > entries) {
-        try
-        {
+        try {
             File sessionFile = new File(path);
 
-            if (!sessionFile.createNewFile())
-            {
+            if (!sessionFile.createNewFile()) {
                 sessionFile.delete();
                 sessionFile.createNewFile();
             }
 
             try (
-                    FileOutputStream f = new FileOutputStream(sessionFile);
-                    ObjectOutputStream b = new ObjectOutputStream(f);
-                    )
-            {
-                for(PvpProfitCalcRecord r : entries)
-                {
+                    FileOutputStream f = new FileOutputStream(sessionFile); ObjectOutputStream b = new ObjectOutputStream(f);
+            ) {
+                for (PvpProfitCalcRecord r: entries) {
                     b.writeObject(r);
                 }
-            }
-            catch (IOException i)
-            {
+            } catch (IOException i) {
                 i.printStackTrace();
             }
-        }
-        catch (IOException  e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }
@@ -96,31 +87,22 @@ public class PvpProfitCalcSession {
         ArrayList < PvpProfitCalcRecord > entries = new ArrayList < > ();
         File sessionFile = new File(path);
 
-        if (!sessionFileExists())
-        {
+        if (!sessionFileExists()) {
             return entries;
         }
 
         try (
-                FileInputStream f = new FileInputStream(sessionFile);
-                ObjectInputStream b = new ObjectInputStream(f);
-        )
-        {
-            try
-            {
-                while (true)
-                {
+                FileInputStream f = new FileInputStream(sessionFile); ObjectInputStream b = new ObjectInputStream(f);
+        ) {
+            try {
+                while (true) {
                     PvpProfitCalcRecord record = (PvpProfitCalcRecord) b.readObject();
                     entries.add(record);
                 }
-            }
-            catch (Exception e)
-            {
+            } catch (Exception e) {
                 /* Exit */
             }
-        }
-        catch (IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
         return entries;
@@ -132,11 +114,9 @@ public class PvpProfitCalcSession {
 
     void createNewUserFile() {
         File file = new File(path);
-        try{
+        try {
             file.createNewFile();
-        }
-        catch(IOException e)
-        {
+        } catch (IOException e) {
             e.printStackTrace();
         }
     }

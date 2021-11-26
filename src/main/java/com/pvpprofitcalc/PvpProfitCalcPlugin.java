@@ -234,8 +234,7 @@ public class PvpProfitCalcPlugin extends Plugin {
 			getInventory();
 			userCombatLevel = client.getLocalPlayer().getCombatLevel();
 
-			if(!client.getUsername().equalsIgnoreCase(activeSessionUser))
-			{
+			if (!client.getUsername().equalsIgnoreCase(activeSessionUser)) {
 				this.pvpProfitCalcSession = new PvpProfitCalcSession(client);
 
 				activeSessionUser = client.getUsername();
@@ -243,22 +242,16 @@ public class PvpProfitCalcPlugin extends Plugin {
 				entries.clear();
 				SwingUtilities.invokeLater(() ->
 						panel.resetNewActiveUser());
-				/* pvpProfitCalcSession.removeAllFromSession(); */
 
 				this.pvpProfitCalcSession = new PvpProfitCalcSession(client);
-				if(!pvpProfitCalcSession.sessionFileExists())
-				{
+				if (!pvpProfitCalcSession.sessionFileExists()) {
 					pvpProfitCalcSession.createNewUserFile();
-				}
-				else
-				{
-					ArrayList<PvpProfitCalcRecord> savedEntries = pvpProfitCalcSession.getSessionFileEntries();
-					for(PvpProfitCalcRecord r : savedEntries)
-					{
+				} else {
+					ArrayList < PvpProfitCalcRecord > savedEntries = pvpProfitCalcSession.getSessionFileEntries();
+					for (PvpProfitCalcRecord r: savedEntries) {
 						int combatLevel = Integer.parseInt(r.getSubTitle().replaceAll("[^0-9]", ""));
-						Collection<ItemStack> items = new ArrayList<>();
-						for(PvpProfitCalcItem i : r.getItems())
-						{
+						Collection < ItemStack > items = new ArrayList < > ();
+						for (PvpProfitCalcItem i: r.getItems()) {
 							items.add(new ItemStack(i.getId(), i.getQuantity(), client.getLocalPlayer().getLocalLocation()));
 						}
 						addEntry(r.getTitle(), 0, r.getType(), items);
