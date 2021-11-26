@@ -420,6 +420,7 @@ class PvpProfitCalcPanel extends PluginPanel {
         logsContainer.remove(box);
         logsContainer.repaint();
         if (sessionRecords.isEmpty()) {
+            plugin.pvpProfitCalcSession.removeAllFromSession();
             add(errorPanel);
         }
     }
