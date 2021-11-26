@@ -29,6 +29,8 @@ package com.pvpprofitcalc;
 
 import com.google.common.collect.ImmutableSet;
 import java.awt.image.BufferedImage;
+import java.io.*;
+import java.nio.file.Files;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.ArrayList;
@@ -80,6 +82,7 @@ import net.runelite.client.plugins.PluginDescriptor;
 import net.runelite.client.ui.ClientToolbar;
 import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
+import static net.runelite.client.RuneLite.RUNELITE_DIR;
 
 @PluginDescriptor(
 		name = "PvP Statistics",
@@ -129,6 +132,10 @@ public class PvpProfitCalcPlugin extends Plugin {
 	public static Actor currentPlayerInteraction = null;
 	public static Instant lastHitsplatTime;
 	public static int userCombatLevel;
+
+	PvpProfitCalcSession pvpProfitCalcSession;
+	private String activeSessionUser = "";
+	private static Collection < PvpProfitCalcRecord > entries = new ArrayList < PvpProfitCalcRecord > ();
 
 	public static Item[] currentInventory = null;
 	public static Item[] currentEquipment = null;
@@ -226,6 +233,38 @@ public class PvpProfitCalcPlugin extends Plugin {
 			syncSettings();
 			getInventory();
 			userCombatLevel = client.getLocalPlayer().getCombatLevel();
+
+			if(!client.getUsername().equalsIgnoreCase(activeSessionUser))
+			{
+				this.pvpProfitCalcSession = new PvpProfitCalcSession(client);
+
+				activeSessionUser = client.getUsername();
+
+				entries.clear();
+				SwingUtilities.invokeLater(() ->
+						panel.resetNewActiveUser());
+				/* pvpProfitCalcSession.removeAllFromSession(); */
+
+				this.pvpProfitCalcSession = new PvpProfitCalcSession(client);
+				if(!pvpProfitCalcSession.sessionFileExists())
+				{
+					pvpProfitCalcSession.createNewUserFile();
+				}
+				else
+				{
+					ArrayList<PvpProfitCalcRecord> savedEntries = pvpProfitCalcSession.getSessionFileEntries();
+					for(PvpProfitCalcRecord r : savedEntries)
+					{
+						int combatLevel = Integer.parseInt(r.getSubTitle().replaceAll("[^0-9]", ""));
+						Collection<ItemStack> items = new ArrayList<>();
+						for(PvpProfitCalcItem i : r.getItems())
+						{
+							items.add(new ItemStack(i.getId(), i.getQuantity(), client.getLocalPlayer().getLocalLocation()));
+						}
+						addEntry(r.getTitle(), 0, r.getType(), items);
+					}
+				}
+			}
 		}
 	}
 
@@ -401,6 +440,16 @@ public class PvpProfitCalcPlugin extends Plugin {
 		panel.updateInteractionsToolTip();
 	}
 
+	void removeAll() {
+		entries.clear();
+		pvpProfitCalcSession.removeAllFromSession();
+	}
+
+	void removeEntry(PvpProfitCalcRecord record) {
+		entries.remove(record);
+		pvpProfitCalcSession.removeFromSession(record);
+	}
+
 	private void syncSettings() {
 		syncWildernessLevel();
 		highRiskWorld = isProtectItemAllowed();
@@ -454,7 +503,7 @@ public class PvpProfitCalcPlugin extends Plugin {
 		wildyLevel = Integer.parseInt(m.group(1));
 	}
 
-	private void addEntry(@NonNull String name, int combatLevel, PvpProfitCalcType type, Collection < ItemStack > items) {
+	void addEntry(@NonNull String name, int combatLevel, PvpProfitCalcType type, Collection < ItemStack > items) {
 		nullInteractions();
 		final PvpProfitCalcItem[] entries = buildEntries(stack(items));
 		SwingUtilities.invokeLater(() -> panel.add(name, type, combatLevel, entries));

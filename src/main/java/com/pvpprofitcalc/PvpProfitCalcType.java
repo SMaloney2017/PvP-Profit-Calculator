@@ -25,7 +25,9 @@
 
 package com.pvpprofitcalc;
 
-enum PvpProfitCalcType {
+import java.io.Serializable;
+
+enum PvpProfitCalcType implements Serializable {
     KILL,
     DEATH
 }

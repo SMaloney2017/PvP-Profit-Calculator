@@ -29,8 +29,10 @@ package com.pvpprofitcalc;
 import lombok.NonNull;
 import lombok.Value;
 
+import java.io.Serializable;
+
 @Value
-class PvpProfitCalcRecord {
+class PvpProfitCalcRecord implements Serializable {
     @NonNull
     String title;
     String subTitle;

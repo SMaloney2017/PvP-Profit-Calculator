@@ -128,6 +128,7 @@ class PvpProfitCalcPanel extends PluginPanel {
     private final List < PvpProfitCalcBox > boxes = new ArrayList < > ();
 
     private final ItemManager itemManager;
+    private final PvpProfitCalcPlugin plugin;
 
     private String currentView;
     private PvpProfitCalcType currentType;
@@ -143,6 +144,7 @@ class PvpProfitCalcPanel extends PluginPanel {
 
     PvpProfitCalcPanel(final PvpProfitCalcPlugin plugin, final ItemManager itemManager) {
         this.itemManager = itemManager;
+        this.plugin = plugin;
 
         setBorder(new EmptyBorder(6, 6, 6, 6));
         setBackground(ColorScheme.DARK_GRAY_COLOR);
@@ -237,7 +239,10 @@ class PvpProfitCalcPanel extends PluginPanel {
         overallPanel.add(toggleCollapse, BorderLayout.EAST);
 
         final JMenuItem reset = new JMenuItem("Reset All");
-        reset.addActionListener(e -> resetAll());
+        reset.addActionListener(e -> {
+                this.plugin.removeAll();
+        resetAll();
+        });
 
         final JPopupMenu popupMenu = new JPopupMenu();
         popupMenu.setBorder(new EmptyBorder(1, 1, 1, 1));
@@ -295,7 +300,10 @@ class PvpProfitCalcPanel extends PluginPanel {
         });
 
         final JMenuItem reset = new JMenuItem("Reset Selected");
-        reset.addActionListener(e -> resetMatch(box, record));
+        reset.addActionListener(e -> {
+                this.plugin.removeEntry(record);
+        resetMatch(box, record);
+        });
 
         popupMenu.add(reset);
 
@@ -311,6 +319,7 @@ class PvpProfitCalcPanel extends PluginPanel {
         final PvpProfitCalcRecord record = new PvpProfitCalcRecord(eventName, subTitle, type, items, 1);
 
         sessionRecords.add(record);
+        plugin.pvpProfitCalcSession.addToSession(record);
 
         PvpProfitCalcBox box = buildBox(record);
         if (box != null) {
@@ -368,7 +377,7 @@ class PvpProfitCalcPanel extends PluginPanel {
         updateCollapseText();
     }
 
-    private void resetAll() {
+    void resetAll() {
         final int result = JOptionPane.showOptionDialog(overallPanel, "This will permanently delete the current deaths from the client.",
                 "Are you sure?", JOptionPane.YES_NO_OPTION, JOptionPane.WARNING_MESSAGE,
                 null, new String[] {
@@ -379,6 +388,10 @@ class PvpProfitCalcPanel extends PluginPanel {
         if (result != JOptionPane.YES_OPTION) {
             return;
         }
+        resetNewActiveUser();
+    }
+
+    void resetNewActiveUser() {
         Predicate < PvpProfitCalcRecord > match = r -> r.matches(currentView, currentType);
         sessionRecords.removeIf(match);
         boxes.removeIf(b -> b.matches(currentView, currentType));

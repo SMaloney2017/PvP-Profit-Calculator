@@ -30,10 +30,12 @@ import lombok.AllArgsConstructor;
 import lombok.EqualsAndHashCode;
 import lombok.Getter;
 
+import java.io.Serializable;
+
 @AllArgsConstructor
 @Getter
 @EqualsAndHashCode
-class PvpProfitCalcItem {
+class PvpProfitCalcItem implements Serializable {
     private final int id;
     private final String name;
     private int quantity;
