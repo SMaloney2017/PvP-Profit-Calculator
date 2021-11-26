@@ -216,7 +216,6 @@ public class PvpProfitCalcPlugin extends Plugin {
 
 		final Player player = playerLootReceived.getPlayer();
 		addEntry(player.getName(), player.getCombatLevel(), PvpProfitCalcType.KILL, playerLootReceived.getItems());
-
 	}
 
 	@Subscribe
