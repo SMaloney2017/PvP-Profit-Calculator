@@ -82,7 +82,7 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 
 @PluginDescriptor(
-		name = "PvP Statistics",
+		name = "PvP Profit Calculator",
 		description = "Logs K/D, profits, losses, and other PvP related information during a session.",
 		enabledByDefault = false
 )
