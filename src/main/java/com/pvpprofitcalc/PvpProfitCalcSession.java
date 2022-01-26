@@ -87,7 +87,7 @@ public class PvpProfitCalcSession {
         ArrayList < PvpProfitCalcRecord > entries = new ArrayList < > ();
         File sessionFile = new File(path);
 
-        if (!sessionFileExists()) {
+        if (!sessionFileExists() || sessionFile.length() == 0 ) {
             return entries;
         }
 
@@ -115,6 +115,7 @@ public class PvpProfitCalcSession {
     void createNewUserFile() {
         File file = new File(path);
         try {
+            file.getParentFile().mkdirs();
             file.createNewFile();
         } catch (IOException e) {
             e.printStackTrace();
