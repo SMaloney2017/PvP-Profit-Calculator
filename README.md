@@ -1,5 +1,5 @@
 ## PvP-Profit-Calculator
-A 'Loot Tracker'-like plugin for logging PvP kills/ deaths in RuneLite as well as returning useful information
+A "Loot Tracker"-like plugin for logging PvP kills/ deaths in RuneLite as well as returning useful information
 such as world type, skull status, protect item, K/D Ratio, and profit gained/ lost.
 
 ![pvp-profit-calc](https://user-images.githubusercontent.com/60162255/143652128-92c47109-268f-4480-bb69-ba6da58fb20b.png)
