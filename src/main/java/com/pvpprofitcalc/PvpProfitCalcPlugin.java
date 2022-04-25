@@ -89,7 +89,7 @@ import net.runelite.client.util.ImageUtil;
 
 @Slf4j
 public class PvpProfitCalcPlugin extends Plugin {
-	private final Duration PVP_WAIT = Duration.ofSeconds(10);
+	private final Duration PVP_WAIT = Duration.ofSeconds(12);
 	private final Duration ACTION_WAIT = Duration.ofSeconds(5);
 
 	@Inject
@@ -230,10 +230,10 @@ public class PvpProfitCalcPlugin extends Plugin {
 			getInventory();
 			userCombatLevel = client.getLocalPlayer().getCombatLevel();
 
-			if (!client.getUsername().equalsIgnoreCase(activeSessionUser)) {
+			if (!String.valueOf(client.getAccountHash()).equals(activeSessionUser)) {
 				this.pvpProfitCalcSession = new PvpProfitCalcSession(client);
 
-				activeSessionUser = client.getUsername();
+				activeSessionUser = String.valueOf(client.getAccountHash());
 
 				entries.clear();
 				SwingUtilities.invokeLater(() ->

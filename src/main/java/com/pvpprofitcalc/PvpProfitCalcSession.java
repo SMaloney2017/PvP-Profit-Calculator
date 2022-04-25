@@ -41,7 +41,7 @@ public class PvpProfitCalcSession {
     @Inject
     public PvpProfitCalcSession(Client client) {
         this.client = client;
-        this.path = RUNELITE_DIR + "/pvp-profit-calc/" + client.getUsername() + ".txt";
+        this.path = RUNELITE_DIR + "/pvp-profit-calc/" + client.getAccountHash() + ".txt";
     }
 
     public void addToSession(PvpProfitCalcRecord record) {
