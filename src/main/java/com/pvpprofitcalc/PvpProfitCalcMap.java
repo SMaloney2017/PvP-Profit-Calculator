@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2020, Anthony <https://github.com/while-loop>
- * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -30,19 +29,22 @@ import com.google.common.collect.ImmutableMap;
 import lombok.AllArgsConstructor;
 
 @AllArgsConstructor
-class PvpProfitCalcMap {
+class PvpProfitCalcMap
+{
 
 	private final String name;
 	private final int baseId;
 
-	private static final ImmutableMap < String, Integer > MAPPINGS;
+	private static final ImmutableMap<String, Integer> MAPPINGS;
 
-	static {
-		ImmutableMap.Builder < String, Integer > map = ImmutableMap.builder();
+	static
+	{
+		ImmutableMap.Builder<String, Integer> map = ImmutableMap.builder();
 		MAPPINGS = map.build();
 	}
 
-	static int map(int itemId, String name) {
+	static int map(int itemId, String name)
+	{
 		return MAPPINGS.getOrDefault(name, itemId);
 	}
 }

@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2018, Tomas Slusny <slusnucky@gmail.com>
- * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -35,14 +34,16 @@ import java.io.Serializable;
 @AllArgsConstructor
 @Getter
 @EqualsAndHashCode
-class PvpProfitCalcItem implements Serializable {
-    private final int id;
-    private final String name;
-    private int quantity;
-    private final int GePrice;
+class PvpProfitCalcItem implements Serializable
+{
+	private final int id;
+	private final String name;
+	private int quantity;
+	private final int GePrice;
 
-    long getTotalPrice() {
-        return (long) GePrice * quantity;
-    }
+	long getTotalPrice()
+	{
+		return (long) GePrice * quantity;
+	}
 
 }

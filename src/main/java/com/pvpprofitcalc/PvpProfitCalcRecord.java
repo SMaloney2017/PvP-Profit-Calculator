@@ -1,6 +1,5 @@
 /*
  * Copyright (c) 2018, Psikoi <https://github.com/psikoi>
- * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -32,20 +31,23 @@ import lombok.Value;
 import java.io.Serializable;
 
 @Value
-class PvpProfitCalcRecord implements Serializable {
-    @NonNull
-    String title;
-    String subTitle;
-    PvpProfitCalcType type;
-    PvpProfitCalcItem[] items;
-    int value;
+class PvpProfitCalcRecord implements Serializable
+{
+	@NonNull
+	String title;
+	String subTitle;
+	PvpProfitCalcType type;
+	PvpProfitCalcItem[] items;
+	int value;
 
 
-    boolean matches(final String id, PvpProfitCalcType type) {
-        if (id == null) {
-            return true;
-        }
+	boolean matches(final String id, PvpProfitCalcType type)
+	{
+		if (id == null)
+		{
+			return true;
+		}
 
-        return title.equals(id) && this.type == type;
-    }
+		return title.equals(id) && this.type == type;
+	}
 }

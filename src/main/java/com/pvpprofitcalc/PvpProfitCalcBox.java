@@ -54,224 +54,251 @@ import net.runelite.client.util.AsyncBufferedImage;
 import net.runelite.client.util.QuantityFormatter;
 import net.runelite.client.util.Text;
 
-class PvpProfitCalcBox extends JPanel {
-    private static final int ITEMS_PER_ROW = 5;
-    private static final int TITLE_PADDING = 5;
+class PvpProfitCalcBox extends JPanel
+{
+	private static final int ITEMS_PER_ROW = 5;
+	private static final int TITLE_PADDING = 5;
 
-    private final JPanel itemContainer = new JPanel();
-    private final JLabel priceLabel = new JLabel();
-    private final JLabel subTitleLabel = new JLabel();
-    private final JPanel logTitle = new JPanel();
-    private final ItemManager itemManager;
-    @Getter(AccessLevel.PACKAGE)
-    private final String id;
-    private final PvpProfitCalcType pvpStatsType;
+	private final JPanel itemContainer = new JPanel();
+	private final JLabel priceLabel = new JLabel();
+	private final JLabel subTitleLabel = new JLabel();
+	private final JPanel logTitle = new JPanel();
+	private final ItemManager itemManager;
+	@Getter(AccessLevel.PACKAGE)
+	private final String id;
+	private final PvpProfitCalcType pvpStatsType;
 
-    private int value;
-    @Getter
-    private final List < PvpProfitCalcItem > items = new ArrayList < > ();
+	private int value;
+	@Getter
+	private final List<PvpProfitCalcItem> items = new ArrayList<>();
 
-    private long totalPrice;
+	private long totalPrice;
 
-    PvpProfitCalcBox(
-            final ItemManager itemManager,
-            final String id,
-            final PvpProfitCalcType pvpStatsType,
-            @Nullable final String subtitle
-    ) {
-        this.id = id;
-        this.pvpStatsType = pvpStatsType;
-        this.itemManager = itemManager;
+	PvpProfitCalcBox(
+		final ItemManager itemManager,
+		final String id,
+		final PvpProfitCalcType pvpStatsType,
+		@Nullable final String subtitle
+	)
+	{
+		this.id = id;
+		this.pvpStatsType = pvpStatsType;
+		this.itemManager = itemManager;
 
-        setLayout(new BorderLayout(0, 1));
-        setBorder(new EmptyBorder(5, 0, 0, 0));
+		setLayout(new BorderLayout(0, 1));
+		setBorder(new EmptyBorder(5, 0, 0, 0));
 
-        logTitle.setLayout(new BoxLayout(logTitle, BoxLayout.X_AXIS));
-        logTitle.setBorder(new EmptyBorder(7, 7, 7, 7));
-        logTitle.setBackground(pvpStatsType == PvpProfitCalcType.KILL ? ColorScheme.DARKER_GRAY_COLOR.darker() : new Color(130, 25, 25, 255));
+		logTitle.setLayout(new BoxLayout(logTitle, BoxLayout.X_AXIS));
+		logTitle.setBorder(new EmptyBorder(7, 7, 7, 7));
+		logTitle.setBackground(pvpStatsType == PvpProfitCalcType.KILL ? ColorScheme.PROGRESS_COMPLETE_COLOR.darker() : ColorScheme.PROGRESS_ERROR_COLOR.darker());
 
-        JLabel titleLabel = new JLabel();
-        titleLabel.setText(Text.removeTags(id));
-        titleLabel.setFont(FontManager.getRunescapeSmallFont());
-        titleLabel.setForeground(Color.WHITE);
+		JLabel titleLabel = new JLabel();
+		titleLabel.setText(Text.removeTags(id));
+		titleLabel.setFont(FontManager.getRunescapeSmallFont());
+		titleLabel.setForeground(Color.WHITE);
 
-        titleLabel.setMinimumSize(new Dimension(1, titleLabel.getPreferredSize().height));
-        logTitle.add(titleLabel);
+		titleLabel.setMinimumSize(new Dimension(1, titleLabel.getPreferredSize().height));
+		logTitle.add(titleLabel);
 
-        subTitleLabel.setFont(FontManager.getRunescapeSmallFont());
-        subTitleLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		subTitleLabel.setFont(FontManager.getRunescapeSmallFont());
+		subTitleLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
 
-        if (!Strings.isNullOrEmpty(subtitle)) {
-            subTitleLabel.setText(subtitle);
-        }
+		if (!Strings.isNullOrEmpty(subtitle))
+		{
+			subTitleLabel.setText(subtitle);
+		}
 
-        logTitle.add(Box.createRigidArea(new Dimension(TITLE_PADDING, 0)));
-        logTitle.add(subTitleLabel);
-        logTitle.add(Box.createHorizontalGlue());
-        logTitle.add(Box.createRigidArea(new Dimension(TITLE_PADDING, 0)));
+		logTitle.add(Box.createRigidArea(new Dimension(TITLE_PADDING, 0)));
+		logTitle.add(subTitleLabel);
+		logTitle.add(Box.createHorizontalGlue());
+		logTitle.add(Box.createRigidArea(new Dimension(TITLE_PADDING, 0)));
 
-        priceLabel.setFont(FontManager.getRunescapeSmallFont());
-        priceLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
-        logTitle.add(priceLabel);
+		priceLabel.setFont(FontManager.getRunescapeSmallFont());
+		priceLabel.setForeground(ColorScheme.LIGHT_GRAY_COLOR);
+		logTitle.add(priceLabel);
 
-        add(logTitle, BorderLayout.NORTH);
-        add(itemContainer, BorderLayout.CENTER);
+		add(logTitle, BorderLayout.NORTH);
+		add(itemContainer, BorderLayout.CENTER);
 
-        /* Include/ Ignore Item */
-    }
+		/* Include/ Ignore Item */
+	}
 
-    int getTotalValue() {
-        return value;
-    }
+	int getTotalValue()
+	{
+		return value;
+	}
 
-    boolean matches(final PvpProfitCalcRecord record) {
-        return record.getTitle().equals(id) && record.getType() == pvpStatsType;
-    }
+	boolean matches(final PvpProfitCalcRecord record)
+	{
+		return record.getTitle().equals(id) && record.getType() == pvpStatsType;
+	}
 
-    boolean matches(final String id, final PvpProfitCalcType type) {
-        if (id == null) {
-            return true;
-        }
+	boolean matches(final String id, final PvpProfitCalcType type)
+	{
+		if (id == null)
+		{
+			return true;
+		}
 
-        return this.id.equals(id) && pvpStatsType == type;
-    }
+		return this.id.equals(id) && pvpStatsType == type;
+	}
 
-    void addEntry(final PvpProfitCalcRecord record) {
-        if (!matches(record)) {
-            throw new IllegalArgumentException(record.toString());
-        }
+	void addEntry(final PvpProfitCalcRecord record)
+	{
+		if (!matches(record))
+		{
+			throw new IllegalArgumentException(record.toString());
+		}
 
-        value += record.getValue();
+		value += record.getValue();
 
-        outer:
-        for (PvpProfitCalcItem item: record.getItems()) {
-            final int mappedItemId = PvpProfitCalcMap.map(item.getId(), item.getName());
-            for (int idx = 0; idx < items.size(); ++idx) {
-                PvpProfitCalcItem i = items.get(idx);
-                if (mappedItemId == i.getId()) {
-                    items.set(idx, new PvpProfitCalcItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getGePrice()));
-                    continue outer;
-                }
-            }
+		outer:
+		for (PvpProfitCalcItem item : record.getItems())
+		{
+			final int mappedItemId = PvpProfitCalcMap.map(item.getId(), item.getName());
+			for (int idx = 0; idx < items.size(); ++idx)
+			{
+				PvpProfitCalcItem i = items.get(idx);
+				if (mappedItemId == i.getId())
+				{
+					items.set(idx, new PvpProfitCalcItem(i.getId(), i.getName(), i.getQuantity() + item.getQuantity(), i.getGePrice()));
+					continue outer;
+				}
+			}
 
-            final PvpProfitCalcItem mappedItem = mappedItemId == item.getId() ?
-                    item :
-                    new PvpProfitCalcItem(mappedItemId, item.getName(), item.getQuantity(), item.getGePrice());
-            items.add(mappedItem);
-        }
-    }
+			final PvpProfitCalcItem mappedItem = mappedItemId == item.getId() ?
+				item :
+				new PvpProfitCalcItem(mappedItemId, item.getName(), item.getQuantity(), item.getGePrice());
+			items.add(mappedItem);
+		}
+	}
 
-    void rebuild() {
-        buildItems();
+	void rebuild()
+	{
+		buildItems();
 
-        String priceTypeString = (pvpStatsType == PvpProfitCalcType.DEATH ? "Total Loss: " : "Total Gain: ");
+		String priceTypeString = (pvpStatsType == PvpProfitCalcType.DEATH ? "Total Loss: " : "Total Gain: ");
 
-        priceLabel.setText(priceTypeString + QuantityFormatter.quantityToStackSize(totalPrice) + " gp");
-        priceLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice) + " gp");
+		priceLabel.setText(priceTypeString + QuantityFormatter.quantityToStackSize(totalPrice) + " gp");
+		priceLabel.setToolTipText(QuantityFormatter.formatNumber(totalPrice) + " gp");
 
-        final long value = getTotalValue();
-        subTitleLabel.setText("x " + value);
+		final long value = getTotalValue();
+		subTitleLabel.setText("x " + value);
 
-        validate();
-        repaint();
-    }
+		validate();
+		repaint();
+	}
 
-    void collapse() {
-        if (!isCollapsed()) {
-            itemContainer.setVisible(false);
-            applyDimmer(false, logTitle);
-        }
-    }
+	void collapse()
+	{
+		if (!isCollapsed())
+		{
+			itemContainer.setVisible(false);
+			applyDimmer(false, logTitle);
+		}
+	}
 
-    void expand() {
-        if (isCollapsed()) {
-            itemContainer.setVisible(true);
-            applyDimmer(true, logTitle);
-        }
-    }
+	void expand()
+	{
+		if (isCollapsed())
+		{
+			itemContainer.setVisible(true);
+			applyDimmer(true, logTitle);
+		}
+	}
 
-    boolean isCollapsed() {
-        return !itemContainer.isVisible();
-    }
+	boolean isCollapsed()
+	{
+		return !itemContainer.isVisible();
+	}
 
-    private void applyDimmer(boolean brighten, JPanel panel) {
-        for (Component component: panel.getComponents()) {
-            Color color = component.getForeground();
+	private void applyDimmer(boolean brighten, JPanel panel)
+	{
+		for (Component component : panel.getComponents())
+		{
+			Color color = component.getForeground();
 
-            component.setForeground(brighten ? color.brighter() : color.darker());
-        }
-    }
+			component.setForeground(brighten ? color.brighter() : color.darker());
+		}
+	}
 
-    private void buildItems() {
-        totalPrice = 0;
+	private void buildItems()
+	{
+		totalPrice = 0;
 
-        List < PvpProfitCalcItem > items = this.items;
+		List<PvpProfitCalcItem> items = this.items;
 
-        /* Hide Ignored Items */
+		/* Hide Ignored Items */
 
-        boolean isHidden = items.isEmpty();
-        setVisible(!isHidden);
+		boolean isHidden = items.isEmpty();
+		setVisible(!isHidden);
 
-        if (isHidden) {
-            return;
-        }
+		if (isHidden)
+		{
+			return;
+		}
 
-        ToLongFunction < PvpProfitCalcItem > price = PvpProfitCalcItem::getTotalPrice;
+		ToLongFunction<PvpProfitCalcItem> price = PvpProfitCalcItem::getTotalPrice;
 
-        totalPrice = items.stream()
-                .mapToLong(price)
-                .sum();
+		totalPrice = items.stream()
+			.mapToLong(price)
+			.sum();
 
-        items.sort(Comparator.comparingLong(price).reversed());
+		items.sort(Comparator.comparingLong(price).reversed());
 
-        final int rowSize = ((items.size() % ITEMS_PER_ROW == 0) ? 0 : 1) + items.size() / ITEMS_PER_ROW;
+		final int rowSize = ((items.size() % ITEMS_PER_ROW == 0) ? 0 : 1) + items.size() / ITEMS_PER_ROW;
 
-        itemContainer.removeAll();
-        itemContainer.setLayout(new GridLayout(rowSize, ITEMS_PER_ROW, 1, 1));
+		itemContainer.removeAll();
+		itemContainer.setLayout(new GridLayout(rowSize, ITEMS_PER_ROW, 1, 1));
 
-        for (int i = 0; i < rowSize * ITEMS_PER_ROW; i++) {
-            final JPanel slotContainer = new JPanel();
-            slotContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
+		for (int i = 0; i < rowSize * ITEMS_PER_ROW; i++)
+		{
+			final JPanel slotContainer = new JPanel();
+			slotContainer.setBackground(ColorScheme.DARKER_GRAY_COLOR);
 
-            if (i < items.size()) {
-                final PvpProfitCalcItem item = items.get(i);
-                final JLabel imageLabel = new JLabel();
-                imageLabel.setToolTipText(buildToolTip(item));
-                imageLabel.setVerticalAlignment(SwingConstants.CENTER);
-                imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
+			if (i < items.size())
+			{
+				final PvpProfitCalcItem item = items.get(i);
+				final JLabel imageLabel = new JLabel();
+				imageLabel.setToolTipText(buildToolTip(item));
+				imageLabel.setVerticalAlignment(SwingConstants.CENTER);
+				imageLabel.setHorizontalAlignment(SwingConstants.CENTER);
 
-                AsyncBufferedImage itemImage = itemManager.getImage(item.getId(), item.getQuantity(), item.getQuantity() > 1);
+				AsyncBufferedImage itemImage = itemManager.getImage(item.getId(), item.getQuantity(), item.getQuantity() > 1);
 
-                itemImage.addTo(imageLabel);
+				itemImage.addTo(imageLabel);
 
-                slotContainer.add(imageLabel);
+				slotContainer.add(imageLabel);
 
-                /* Toggle Item */
-            }
+				/* Toggle Item */
+			}
 
-            itemContainer.add(slotContainer);
-        }
+			itemContainer.add(slotContainer);
+		}
 
-        itemContainer.repaint();
-    }
+		itemContainer.repaint();
+	}
 
-    private static String buildToolTip(PvpProfitCalcItem item) {
-        final String name = item.getName();
-        final int quantity = item.getQuantity();
-        final long price = item.getTotalPrice();
-        final StringBuilder sb = new StringBuilder("<html>");
-        sb.append(name).append(" x ").append(QuantityFormatter.formatNumber(quantity));
-        if (item.getId() == ItemID.COINS_995) {
-            sb.append("</html>");
-            return sb.toString();
-        }
+	private static String buildToolTip(PvpProfitCalcItem item)
+	{
+		final String name = item.getName();
+		final int quantity = item.getQuantity();
+		final long price = item.getTotalPrice();
+		final StringBuilder sb = new StringBuilder("<html>");
+		sb.append(name).append(" x ").append(QuantityFormatter.formatNumber(quantity));
+		if (item.getId() == ItemID.COINS_995)
+		{
+			sb.append("</html>");
+			return sb.toString();
+		}
 
-        sb.append("<br>Ge Price: ").append(QuantityFormatter.quantityToStackSize(price));
-        if (quantity > 1) {
-            sb.append(" (").append(QuantityFormatter.quantityToStackSize(item.getGePrice())).append(" ea)");
-        }
+		sb.append("<br>Ge Price: ").append(QuantityFormatter.quantityToStackSize(price));
+		if (quantity > 1)
+		{
+			sb.append(" (").append(QuantityFormatter.quantityToStackSize(item.getGePrice())).append(" ea)");
+		}
 
-        sb.append("</html>");
-        return sb.toString();
-    }
+		sb.append("</html>");
+		return sb.toString();
+	}
 }

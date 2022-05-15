@@ -1,7 +1,6 @@
 /*
  * Copyright (c) 2018, Psikoi <https://github.com/psikoi>
  * Copyright (c) 2018, Adam <Adam@sigterm.info>
- * Copyright (c) 2021, Sean Maloney <https://github.com/SMaloney2017>
  * All rights reserved.
  *
  * Redistribution and use in source and binary forms, with or without
@@ -82,13 +81,14 @@ import net.runelite.client.ui.NavigationButton;
 import net.runelite.client.util.ImageUtil;
 
 @PluginDescriptor(
-		name = "PvP Profit Calculator",
-		description = "Logs K/D, profits, losses, and other PvP related information during a session.",
-		enabledByDefault = false
+	name = "PvP Profit Calculator",
+	description = "Logs K/D, profits, losses, and other PvP related information during a session.",
+	enabledByDefault = false
 )
 
 @Slf4j
-public class PvpProfitCalcPlugin extends Plugin {
+public class PvpProfitCalcPlugin extends Plugin
+{
 	private final Duration PVP_WAIT = Duration.ofSeconds(12);
 	private final Duration ACTION_WAIT = Duration.ofSeconds(5);
 
@@ -132,14 +132,15 @@ public class PvpProfitCalcPlugin extends Plugin {
 
 	PvpProfitCalcSession pvpProfitCalcSession;
 	private String activeSessionUser = "";
-	private static Collection < PvpProfitCalcRecord > entries = new ArrayList < PvpProfitCalcRecord > ();
+	private static Collection<PvpProfitCalcRecord> entries = new ArrayList<PvpProfitCalcRecord>();
 
 	public static Item[] currentInventory = null;
 	public static Item[] currentEquipment = null;
 	public static Item[] afterDeathInventory = null;
 	public static Item[] afterDeathEquipment = null;
 
-	static {
+	static
+	{
 		unskulledIcon = ImageUtil.loadImageResource(PvpProfitCalcPlugin.class, "unskulled.png");
 		skulledIcon = ImageUtil.loadImageResource(PvpProfitCalcPlugin.class, "skull.png");
 		navIcon = ImageUtil.loadImageResource(PvpProfitCalcPlugin.class, "icon.png");
@@ -147,24 +148,31 @@ public class PvpProfitCalcPlugin extends Plugin {
 		UNSKULLED = new ImageIcon(unskulledIcon);
 	}
 
-	private static final Set < Integer > LAST_MAN_STANDING_REGIONS = ImmutableSet.of(13658, 13659, 13660, 13914, 13915, 13916, 13918, 13919, 13920, 14174, 14175, 14176, 14430, 14431, 14432);
-	private static final Set < Integer > SOUL_WARS_REGIONS = ImmutableSet.of(8493, 8749, 9005);
+	private static final Set<Integer> LAST_MAN_STANDING_REGIONS = ImmutableSet.of(13658, 13659, 13660, 13914, 13915, 13916, 13918, 13919, 13920, 14174, 14175, 14176, 14430, 14431, 14432);
+	private static final Set<Integer> SOUL_WARS_REGIONS = ImmutableSet.of(8493, 8749, 9005);
 
-	private static Collection < ItemStack > stack(Collection < ItemStack > items) {
-		final List < ItemStack > list = new ArrayList < > ();
+	private static Collection<ItemStack> stack(Collection<ItemStack> items)
+	{
+		final List<ItemStack> list = new ArrayList<>();
 
-		for (final ItemStack item: items) {
+		for (final ItemStack item : items)
+		{
 			int quantity = 0;
-			for (final ItemStack i: list) {
-				if (i.getId() == item.getId()) {
+			for (final ItemStack i : list)
+			{
+				if (i.getId() == item.getId())
+				{
 					quantity = i.getQuantity();
 					list.remove(i);
 					break;
 				}
 			}
-			if (quantity > 0) {
+			if (quantity > 0)
+			{
 				list.add(new ItemStack(item.getId(), item.getQuantity() + quantity, item.getLocation()));
-			} else {
+			}
+			else
+			{
 				list.add(item);
 			}
 		}
@@ -173,7 +181,8 @@ public class PvpProfitCalcPlugin extends Plugin {
 	}
 
 	@Override
-	protected void startUp() {
+	protected void startUp()
+	{
 
 		panel = new PvpProfitCalcPanel(this, itemManager);
 		panel.skullStatus.setIcon(UNSKULLED);
@@ -181,36 +190,42 @@ public class PvpProfitCalcPlugin extends Plugin {
 		spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
 		spriteManager.getSpriteAsync(SpriteID.EQUIPMENT_ITEMS_LOST_ON_DEATH, 0, panel::loadHeaderSprite);
 		navButton = NavigationButton.builder()
-				.tooltip("PvP Profit Calculator")
-				.icon(navIcon)
-				.priority(5)
-				.panel(panel)
-				.build();
+			.tooltip("PvP Profit Calculator")
+			.icon(navIcon)
+			.priority(5)
+			.panel(panel)
+			.build();
 
 		clientToolbar.addNavigation(navButton);
 
 	}
 
 	@Override
-	protected void shutDown() {
+	protected void shutDown()
+	{
 		clientToolbar.removeNavigation(navButton);
 		nullInteractions();
 	}
 
 	@Subscribe
-	public void onActorDeath(ActorDeath event) {
-		if (event.getActor() != client.getLocalPlayer()) {
+	public void onActorDeath(ActorDeath event)
+	{
+		if (event.getActor() != client.getLocalPlayer())
+		{
 			return;
 		}
-		if (client.isInInstancedRegion()) {
+		if (client.isInInstancedRegion())
+		{
 			isInstanced = true;
 		}
 		deathLocation = (client.getLocalPlayer().getWorldLocation());
 	}
 
 	@Subscribe
-	public void onPlayerLootReceived(final PlayerLootReceived playerLootReceived) {
-		if (isPlayerWithinMapRegion(LAST_MAN_STANDING_REGIONS) || isPlayerWithinMapRegion(SOUL_WARS_REGIONS)) {
+	public void onPlayerLootReceived(final PlayerLootReceived playerLootReceived)
+	{
+		if (isPlayerWithinMapRegion(LAST_MAN_STANDING_REGIONS) || isPlayerWithinMapRegion(SOUL_WARS_REGIONS))
+		{
 			return;
 		}
 
@@ -219,35 +234,44 @@ public class PvpProfitCalcPlugin extends Plugin {
 	}
 
 	@Subscribe
-	public void onVarbitChanged(VarbitChanged event) {
+	public void onVarbitChanged(VarbitChanged event)
+	{
 		syncSettings();
 	}
 
 	@Subscribe
-	public void onGameStateChanged(final GameStateChanged event) {
-		if (event.getGameState() == GameState.LOGGED_IN) {
+	public void onGameStateChanged(final GameStateChanged event)
+	{
+		if (event.getGameState() == GameState.LOGGED_IN)
+		{
 			syncSettings();
 			getInventory();
 			userCombatLevel = client.getLocalPlayer().getCombatLevel();
 
-			if (!String.valueOf(client.getAccountHash()).equals(activeSessionUser)) {
+			if (!String.valueOf(client.getAccountHash()).equals(activeSessionUser))
+			{
 				this.pvpProfitCalcSession = new PvpProfitCalcSession(client);
 
 				activeSessionUser = String.valueOf(client.getAccountHash());
 
 				entries.clear();
 				SwingUtilities.invokeLater(() ->
-						panel.resetNewActiveUser());
+					panel.resetNewActiveUser());
 
 				this.pvpProfitCalcSession = new PvpProfitCalcSession(client);
-				if (!pvpProfitCalcSession.sessionFileExists()) {
+				if (!pvpProfitCalcSession.sessionFileExists())
+				{
 					pvpProfitCalcSession.createNewUserFile();
-				} else {
-					ArrayList < PvpProfitCalcRecord > savedEntries = pvpProfitCalcSession.getSessionFileEntries();
-					for (PvpProfitCalcRecord r: savedEntries) {
+				}
+				else
+				{
+					ArrayList<PvpProfitCalcRecord> savedEntries = pvpProfitCalcSession.getSessionFileEntries();
+					for (PvpProfitCalcRecord r : savedEntries)
+					{
 						int combatLevel = Integer.parseInt(r.getSubTitle().replaceAll("[^0-9]", ""));
-						Collection < ItemStack > items = new ArrayList < > ();
-						for (PvpProfitCalcItem i: r.getItems()) {
+						Collection<ItemStack> items = new ArrayList<>();
+						for (PvpProfitCalcItem i : r.getItems())
+						{
 							items.add(new ItemStack(i.getId(), i.getQuantity(), client.getLocalPlayer().getLocalLocation()));
 						}
 						addEntry(r.getTitle(), 0, r.getType(), items);
@@ -258,29 +282,37 @@ public class PvpProfitCalcPlugin extends Plugin {
 	}
 
 	@Subscribe
-	public void onItemContainerChanged(ItemContainerChanged event) {
-		if (deathLocation == null) {
+	public void onItemContainerChanged(ItemContainerChanged event)
+	{
+		if (deathLocation == null)
+		{
 			getInventory();
 		}
 	}
 
 	@Subscribe
-	public void onWidgetLoaded(WidgetLoaded event) {
-		if ((event.getGroupId() == WidgetID.GRAVESTONE_GROUP_ID)) {
+	public void onWidgetLoaded(WidgetLoaded event)
+	{
+		if ((event.getGroupId() == WidgetID.GRAVESTONE_GROUP_ID))
+		{
 			gravestoneWidget = client.getWidget(event.getGroupId());
 		}
 	}
 
 	@Subscribe
-	public void onGameTick(GameTick event) {
-		if (lastHitsplatTime != null) {
+	public void onGameTick(GameTick event)
+	{
+		if (lastHitsplatTime != null)
+		{
 			panel.updateTimersToolTip();
-			if (Duration.between(lastHitsplatTime, Instant.now()).compareTo(PVP_WAIT) > 0) {
+			if (Duration.between(lastHitsplatTime, Instant.now()).compareTo(PVP_WAIT) > 0)
+			{
 				nullInteractions();
 			}
 		}
 
-		if (currentOpponentInteraction != null && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation)) {
+		if (currentOpponentInteraction != null && deathLocation != null && !client.getLocalPlayer().getWorldLocation().equals(deathLocation))
+		{
 			getInventoryAfterDeath();
 			processItemsLost();
 
@@ -290,67 +322,94 @@ public class PvpProfitCalcPlugin extends Plugin {
 	}
 
 	@Subscribe
-	public void onInteractingChanged(InteractingChanged event) {
+	public void onInteractingChanged(InteractingChanged event)
+	{
 		if (isInPvpCombat() ||
-				!(event.getSource() instanceof Player) ||
-				!(event.getTarget() instanceof Player)) {
+			!(event.getSource() instanceof Player) ||
+			!(event.getTarget() instanceof Player))
+		{
 			return;
 		}
-		if (event.getSource().equals(client.getLocalPlayer())) {
+		if (event.getSource().equals(client.getLocalPlayer()))
+		{
 			currentPlayerInteraction = event.getTarget();
-		} else if (event.getTarget().equals(client.getLocalPlayer())) {
+		}
+		else if (event.getTarget().equals(client.getLocalPlayer()))
+		{
 			currentOpponentInteraction = event.getSource();
 		}
 		panel.updateInteractionsToolTip();
 	}
 
 	@Subscribe
-	public void onHitsplatApplied(HitsplatApplied event) {
+	public void onHitsplatApplied(HitsplatApplied event)
+	{
 		HitsplatType hitType = event.getHitsplat().getHitsplatType();
 		if (!(event.getActor() == client.getLocalPlayer()) ||
-				!(hitType == HitsplatType.DAMAGE_ME ||
-						hitType == HitsplatType.BLOCK_ME ||
-						hitType == HitsplatType.POISON ||
-						hitType == HitsplatType.VENOM)) {
+			!(hitType == HitsplatType.DAMAGE_ME ||
+				hitType == HitsplatType.BLOCK_ME ||
+				hitType == HitsplatType.POISON ||
+				hitType == HitsplatType.VENOM))
+		{
 			return;
 		}
 		lastHitsplatTime = Instant.now();
 	}
 
-	static String getCombatLevelColor() {
+	static String getCombatLevelColor()
+	{
 		String color = "#ff0000";
 		int levelDifference = PvpProfitCalcPlugin.currentOpponentInteraction.getCombatLevel() - PvpProfitCalcPlugin.userCombatLevel;
 
-		if (levelDifference > 9) {
+		if (levelDifference > 9)
+		{
 			color = "#ff0000";
-		} else if (levelDifference > 6) {
+		}
+		else if (levelDifference > 6)
+		{
 			color = "#ff3000";
-		} else if (levelDifference > 3) {
+		}
+		else if (levelDifference > 3)
+		{
 			color = "#ff7000";
-		} else if (levelDifference > 0) {
+		}
+		else if (levelDifference > 0)
+		{
 			color = "#ffb000";
-		} else if (levelDifference == 0) {
+		}
+		else if (levelDifference == 0)
+		{
 			color = "#ffff00";
 		}
 
-		if (levelDifference < -9) {
+		if (levelDifference < -9)
+		{
 			color = "#00ff00";
-		} else if (levelDifference < -6) {
+		}
+		else if (levelDifference < -6)
+		{
 			color = "#40ff00";
-		} else if (levelDifference < -3) {
+		}
+		else if (levelDifference < -3)
+		{
 			color = "#80ff00";
-		} else if (levelDifference < 0) {
+		}
+		else if (levelDifference < 0)
+		{
 			color = "#c0ff00";
 		}
 
 		return color;
 	}
 
-	private boolean isPlayerWithinMapRegion(Set < Integer > definedMapRegions) {
+	private boolean isPlayerWithinMapRegion(Set<Integer> definedMapRegions)
+	{
 		final int[] mapRegions = client.getMapRegions();
 
-		for (int region: mapRegions) {
-			if (definedMapRegions.contains(region)) {
+		for (int region : mapRegions)
+		{
+			if (definedMapRegions.contains(region))
+			{
 				return true;
 			}
 		}
@@ -358,55 +417,64 @@ public class PvpProfitCalcPlugin extends Plugin {
 		return false;
 	}
 
-	private boolean isProtectItemAllowed() {
+	private boolean isProtectItemAllowed()
+	{
 		return client.getWorldType().contains(WorldType.HIGH_RISK);
 	}
 
-	private boolean isProtectingItem() {
+	private boolean isProtectingItem()
+	{
 		return client.getVar(Varbits.PRAYER_PROTECT_ITEM) == 1;
 	}
 
-	private boolean isInPvpWorld() {
-		final EnumSet < WorldType > world = client.getWorldType();
+	private boolean isInPvpWorld()
+	{
+		final EnumSet<WorldType> world = client.getWorldType();
 		return world.contains(WorldType.PVP);
 	}
 
-	private boolean isInPvpSafeZone() {
+	private boolean isInPvpSafeZone()
+	{
 		final Widget w = client.getWidget(WidgetInfo.PVP_WORLD_SAFE_ZONE);
 		return w != null && !w.isHidden();
 	}
 
-	private boolean isInPvpCombat() {
+	private boolean isInPvpCombat()
+	{
 		return (
-				currentOpponentInteraction != null &&
-						currentOpponentInteraction.equals(currentPlayerInteraction) &&
-						lastHitsplatTime != null &&
-						Duration.between(lastHitsplatTime, Instant.now()).compareTo(ACTION_WAIT) > 0);
+			currentOpponentInteraction != null &&
+				currentOpponentInteraction.equals(currentPlayerInteraction) &&
+				lastHitsplatTime != null &&
+				Duration.between(lastHitsplatTime, Instant.now()).compareTo(ACTION_WAIT) > 0);
 	}
 
-	private void getInventory() {
+	private void getInventory()
+	{
 		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
 		currentInventory = inventory == null ? new Item[0] : inventory.getItems();
 		final ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
 		currentEquipment = equipment == null ? new Item[0] : equipment.getItems();
 	}
 
-	private void getInventoryAfterDeath() {
+	private void getInventoryAfterDeath()
+	{
 		final ItemContainer inventory = client.getItemContainer(InventoryID.INVENTORY);
 		afterDeathInventory = inventory == null ? new Item[0] : inventory.getItems();
 		final ItemContainer equipment = client.getItemContainer(InventoryID.EQUIPMENT);
 		afterDeathEquipment = equipment == null ? new Item[0] : equipment.getItems();
 	}
 
-	private void processItemsLost() {
+	private void processItemsLost()
+	{
 		boolean pvpDeath = gravestoneWidget == null && !isInstanced;
 
-		final Collection < ItemStack > itemsLost = new ArrayList < > ();
-		ArrayList < Item > itemsLostList = new ArrayList < > (Arrays.asList(currentEquipment));
-		itemsLostList.addAll(new ArrayList < > (Arrays.asList(currentInventory)));
-		itemsLostList.removeAll(new ArrayList < > (Arrays.asList(afterDeathEquipment)));
-		itemsLostList.removeAll(new ArrayList < > (Arrays.asList(afterDeathInventory)));
-		for (Item i: itemsLostList) {
+		final Collection<ItemStack> itemsLost = new ArrayList<>();
+		ArrayList<Item> itemsLostList = new ArrayList<>(Arrays.asList(currentEquipment));
+		itemsLostList.addAll(new ArrayList<>(Arrays.asList(currentInventory)));
+		itemsLostList.removeAll(new ArrayList<>(Arrays.asList(afterDeathEquipment)));
+		itemsLostList.removeAll(new ArrayList<>(Arrays.asList(afterDeathInventory)));
+		for (Item i : itemsLostList)
+		{
 			ItemStack newItem = new ItemStack(i.getId(), i.getQuantity(), LocalPoint.fromWorld(client, deathLocation));
 			itemsLost.add(newItem);
 		}
@@ -414,14 +482,17 @@ public class PvpProfitCalcPlugin extends Plugin {
 		ItemStack bones = new ItemStack(526, 1, LocalPoint.fromWorld(client, deathLocation));
 		itemsLost.add(bones);
 
-		if (pvpDeath) {
-			if (currentOpponentInteraction != null) {
+		if (pvpDeath)
+		{
+			if (currentOpponentInteraction != null)
+			{
 				addEntry(currentOpponentInteraction.getName(), currentOpponentInteraction.getCombatLevel(), PvpProfitCalcType.DEATH, itemsLost);
 			}
 		}
 	}
 
-	private void nullInteractions() {
+	private void nullInteractions()
+	{
 		currentOpponentInteraction = null;
 		currentPlayerInteraction = null;
 		lastHitsplatTime = null;
@@ -429,46 +500,61 @@ public class PvpProfitCalcPlugin extends Plugin {
 		panel.updateInteractionsToolTip();
 	}
 
-	void removeAll() {
+	void removeAll()
+	{
 		entries.clear();
 		pvpProfitCalcSession.removeAllFromSession();
 	}
 
-	void removeEntry(PvpProfitCalcRecord record) {
+	void removeEntry(PvpProfitCalcRecord record)
+	{
 		entries.remove(record);
 		pvpProfitCalcSession.removeFromSession(record);
 	}
 
-	private void syncSettings() {
+	private void syncSettings()
+	{
 		syncWildernessLevel();
 		highRiskWorld = isProtectItemAllowed();
 		protectingItem = isProtectingItem();
 
-		try {
+		try
+		{
 			isSkulled = client.getLocalPlayer().getSkullIcon() == SkullIcon.SKULL;
-		} catch (NullPointerException e) {
+		}
+		catch (NullPointerException e)
+		{
 			isSkulled = false;
 		}
-		if (isSkulled || (wildyLevel > 1 && highRiskWorld) || (highRiskWorld && pvpWorld)) {
+		if (isSkulled || (wildyLevel > 1 && highRiskWorld) || (highRiskWorld && pvpWorld))
+		{
 			panel.skullStatus.setIcon(SKULLED);
-		} else {
+		}
+		else
+		{
 			panel.skullStatus.setIcon(UNSKULLED);
 		}
 
-		if (!protectingItem) {
+		if (!protectingItem)
+		{
 			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM_DISABLED, 0, panel::loadPrayerSprite);
-		} else {
+		}
+		else
+		{
 			spriteManager.getSpriteAsync(SpriteID.PRAYER_PROTECT_ITEM, 0, panel::loadPrayerSprite);
 		}
 
 		panel.updateActionsToolTip();
 	}
 
-	private void syncWildernessLevel() {
-		if (client.getVar(Varbits.IN_WILDERNESS) != 1) {
+	private void syncWildernessLevel()
+	{
+		if (client.getVar(Varbits.IN_WILDERNESS) != 1)
+		{
 			pvpWorld = isInPvpWorld();
 			pvpSafeZone = isInPvpSafeZone();
-			if (pvpWorld && !pvpSafeZone) {
+			if (pvpWorld && !pvpSafeZone)
+			{
 				wildyLevel = 1;
 				return;
 			}
@@ -477,14 +563,16 @@ public class PvpProfitCalcPlugin extends Plugin {
 		}
 
 		final Widget wildernessLevelWidget = client.getWidget(WidgetInfo.PVP_WILDERNESS_LEVEL);
-		if (wildernessLevelWidget == null) {
+		if (wildernessLevelWidget == null)
+		{
 			wildyLevel = -1;
 			return;
 		}
 
 		final String wildernessLevelText = wildernessLevelWidget.getText();
 		final Matcher m = WILDERNESS_LEVEL_PATTERN.matcher(wildernessLevelText);
-		if (!m.matches()) {
+		if (!m.matches())
+		{
 			wildyLevel = -1;
 			return;
 		}
@@ -492,25 +580,28 @@ public class PvpProfitCalcPlugin extends Plugin {
 		wildyLevel = Integer.parseInt(m.group(1));
 	}
 
-	void addEntry(@NonNull String name, int combatLevel, PvpProfitCalcType type, Collection < ItemStack > items) {
+	void addEntry(@NonNull String name, int combatLevel, PvpProfitCalcType type, Collection<ItemStack> items)
+	{
 		nullInteractions();
 		final PvpProfitCalcItem[] entries = buildEntries(stack(items));
 		SwingUtilities.invokeLater(() -> panel.add(name, type, combatLevel, entries));
 	}
 
-	private PvpProfitCalcItem buildDeathTrackerItem(int itemId, int quantity) {
+	private PvpProfitCalcItem buildDeathTrackerItem(int itemId, int quantity)
+	{
 		final ItemComposition itemComposition = itemManager.getItemComposition(itemId);
 		final int gePrice = itemManager.getItemPrice(itemId);
 		return new PvpProfitCalcItem(
-				itemId,
-				itemComposition.getName(),
-				quantity,
-				gePrice);
+			itemId,
+			itemComposition.getName(),
+			quantity,
+			gePrice);
 	}
 
-	private PvpProfitCalcItem[] buildEntries(final Collection < ItemStack > itemStacks) {
+	private PvpProfitCalcItem[] buildEntries(final Collection<ItemStack> itemStacks)
+	{
 		return itemStacks.stream()
-				.map(itemStack -> buildDeathTrackerItem(itemStack.getId(), itemStack.getQuantity()))
-				.toArray(PvpProfitCalcItem[]::new);
+			.map(itemStack -> buildDeathTrackerItem(itemStack.getId(), itemStack.getQuantity()))
+			.toArray(PvpProfitCalcItem[]::new);
 	}
 }
